@@ -1,0 +1,29 @@
+name: Build and Deploy via CodeBuild (OIDC)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-codebuild:
+    runs-on: ubuntu-latest
+
+    permissions:
+      # OIDCでAWSにアクセスするために必要
+      id-token: write
+      # （任意）ソースコードに読み取りアクセスが必要なら
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::682033509308:role/github-actions-oidc-role
+          aws-region: us-east-1
+
+      - name: Start CodeBuild
+        run: aws codebuild start-build --project-name cqrs-es-example-swift

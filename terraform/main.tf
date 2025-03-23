@@ -137,3 +137,58 @@ resource "aws_codebuild_project" "cqrs_swift" {
     }
   }
 }
+
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  # GitHub公式ドキュメントで示されているThumbprint
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+
+  # GitHub ActionsからのAssumeRoleではクレーム内 "aud" = sts.amazonaws.com となる
+  client_id_list = ["sts.amazonaws.com"]
+}
+data "aws_iam_policy_document" "github_actions_assume_role" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    # OpenID Connect Provider (Federated) からのAssumeを許可
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    # GitHubリポジトリ・ブランチなどを制限 (condition) で指定
+    #
+    # 例: "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main" のみ許可
+    #     YOUR_ORG, YOUR_REPO を置き換えてください。
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = [
+        "repo:lemo-nade-room/cqrs-es-example-swift:ref:refs/heads/main"
+      ]
+    }
+  }
+}
+resource "aws_iam_role" "github_actions_role" {
+  name               = "github-actions-oidc-role"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+}
+data "aws_iam_policy_document" "github_actions_codebuild" {
+  statement {
+    effect    = "Allow"
+    actions   = [
+      "codebuild:StartBuild",
+      "codebuild:BatchGetBuilds",
+      # 他にも必要に応じて追加
+    ]
+    resources = ["*"]  # 必要に応じて特定の CodeBuild プロジェクトARNに絞ることを推奨
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_codebuild" {
+  name   = "github-actions-codebuild"
+  role   = aws_iam_role.github_actions_role.id
+  policy = data.aws_iam_policy_document.github_actions_codebuild.json
+}
