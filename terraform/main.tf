@@ -98,6 +98,14 @@ data "aws_iam_policy_document" "codebuild_inline" {
   statement {
     effect = "Allow"
     actions = [
+      "ecr:DescribeImages"
+    ]
+    resources = [aws_ecr_repository.cqrs_swift.arn]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
       "lambda:UpdateFunctionCode",
       # 必要に応じて "lambda:UpdateFunctionConfiguration" など追加
     ]
