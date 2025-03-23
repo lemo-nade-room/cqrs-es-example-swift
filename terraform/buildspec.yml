@@ -17,9 +17,7 @@ phases:
     commands:
       - echo "Pushing the Docker image..."
       - docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:latest"
-      - export IMAGE_DIGEST=$(aws ecr describe-images --repository-name "$IMAGE_REPO_NAME" --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text)
-      - echo "Updating Lambda function to use new image digest: $IMAGE_DIGEST"
-      - aws lambda update-function-code --function-name "cqrs-es-example-swift-ARM" --image-uri "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME@$IMAGE_DIGEST"
+      - export IMAGE_DIGEST=$(aws ecr describe-images --repository-name "$IMAGE_REPO_NAME" --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text) && aws lambda update-function-code --function-name "cqrs-es-example-swift-ARM" --image-uri "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME@$IMAGE_DIGEST"
       - echo "Build and Lambda Update completed on $(date)"
 
 artifacts:
