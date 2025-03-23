@@ -94,6 +94,15 @@ data "aws_iam_policy_document" "codebuild_inline" {
       data.aws_secretsmanager_secret.github-repository-secret.arn
     ]
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "lambda:UpdateFunctionCode",
+      # 必要に応じて "lambda:UpdateFunctionConfiguration" など追加
+    ]
+    resources = [aws_lambda_function.swift_lambda.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "codebuild_inline" {

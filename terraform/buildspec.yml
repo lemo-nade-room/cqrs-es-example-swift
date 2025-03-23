@@ -17,7 +17,15 @@ phases:
     commands:
       - echo Pushing the Docker image...
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:latest
-      - echo Build completed on `date`
+
+      # 1) 最新のイメージの digest を取得
+      - export IMAGE_DIGEST=$(aws ecr describe-images --repository-name $IMAGE_REPO_NAME --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text)
+
+      # 2) Lambda 関数を update-function-code
+      - echo "Updating Lambda function to use new image digest: $IMAGE_DIGEST"
+      - aws lambda update-function-code --function-name "cqrs-es-example-swift-ARM" --image-uri "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME@latest"
+
+      - echo "Build and Lambda Update completed on `date`"
 
 artifacts:
   files:
