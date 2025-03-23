@@ -22,5 +22,9 @@ func routes(_ app: Application) throws {
         "DELETE hello"
     }
 
+    app.get("hello", "world") { req in
+        "GET hello world"
+    }
+
     try app.register(collection: TodoController())
 }
