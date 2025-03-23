@@ -10,6 +10,7 @@ terraform {
     }
   }
 }
+data "aws_caller_identity" "current" {}
 
 variable "aws_region" {
   default = "us-east-1"
@@ -127,6 +128,19 @@ resource "aws_codebuild_project" "cqrs_swift" {
     environment_variable {
       name  = "IMAGE_REPO_NAME"
       value = aws_ecr_repository.cqrs_swift.name
+    }
+
+    # AWS_DEFAULT_REGION を環境変数として注入
+    environment_variable {
+      name  = "AWS_DEFAULT_REGION"
+      value = var.aws_region
+    }
+
+    # AWS_ACCOUNT_ID を注入する例
+    # 自アカウントIDを自動取得したい場合
+    environment_variable {
+      name  = "AWS_ACCOUNT_ID"
+      value = data.aws_caller_identity.current.account_id
     }
   }
 
