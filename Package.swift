@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "cqrs-es-example-swift",
     platforms: [
-       .macOS(.v13)
+        .macOS(.v13)
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
@@ -38,10 +38,12 @@ let package = Package(
                 .product(name: "VaporTesting", package: "vapor"),
             ],
             swiftSettings: swiftSettings
-        )
+        ),
     ]
 )
 
-var swiftSettings: [SwiftSetting] { [
-    .enableUpcomingFeature("ExistentialAny"),
-] }
+var swiftSettings: [SwiftSetting] {
+    [
+        .enableUpcomingFeature("ExistentialAny")
+    ]
+}
