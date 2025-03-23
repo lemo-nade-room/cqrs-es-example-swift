@@ -9,9 +9,13 @@ func routes(_ app: Application) throws {
     app.get("hello") { req async -> String in
         "Hello, world!"
     }
-    
+
     app.post("hello") { req in
         "POST hello"
+    }
+
+    app.put("hello") { req in
+        "PUT hello"
     }
 
     try app.register(collection: TodoController())
