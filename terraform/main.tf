@@ -51,6 +51,10 @@ resource "aws_iam_role" "codebuild_role" {
   assume_role_policy = data.aws_iam_policy_document.codebuild_assume_role.json
 }
 
+data "aws_secretsmanager_secret" "github-repository-secret" {
+  name = "lemo-nade-room-cqrs-es-example-swift"
+}
+
 # CodeBuildがECRへpushする際に必要なポリシーを付与
 data "aws_iam_policy_document" "codebuild_inline" {
   statement {
@@ -77,6 +81,17 @@ data "aws_iam_policy_document" "codebuild_inline" {
       "ecr:CompleteLayerUpload",
     ]
     resources = ["*"]
+  }
+
+  # Secrets Managerのシークレットを取得するための権限を追加
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      data.aws_secretsmanager_secret.github-repository-secret.arn
+    ]
   }
 }
 
@@ -138,6 +153,9 @@ resource "aws_codebuild_project" "cqrs_swift" {
   }
 }
 
+###############################################################################
+# GitHub OIDC 用のリソース
+###############################################################################
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 
@@ -159,9 +177,6 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     }
 
     # GitHubリポジトリ・ブランチなどを制限 (condition) で指定
-    #
-    # 例: "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main" のみ許可
-    #     YOUR_ORG, YOUR_REPO を置き換えてください。
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
