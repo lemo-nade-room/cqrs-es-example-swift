@@ -221,3 +221,107 @@ resource "aws_iam_role_policy" "github_actions_codebuild" {
   role   = aws_iam_role.github_actions_role.id
   policy = data.aws_iam_policy_document.github_actions_codebuild.json
 }
+
+###############################################################################
+# Lambda実行用のIAMロール
+###############################################################################
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_execution_role" {
+  name               = "lambda-cqrs-swift-arm-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+# CloudWatch Logs などへの書き込みを許可するためのポリシーをアタッチ
+data "aws_iam_policy_document" "lambda_inline" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_inline" {
+  name   = "lambda-cqrs-swift-arm-policy"
+  role   = aws_iam_role.lambda_execution_role.id
+  policy = data.aws_iam_policy_document.lambda_inline.json
+}
+
+###############################################################################
+# Lambda 関数 (ECR イメージを使用し、ARM64 で実行)
+###############################################################################
+resource "aws_lambda_function" "swift_lambda" {
+  function_name = "cqrs-es-example-swift-ARM"
+  role          = aws_iam_role.lambda_execution_role.arn
+
+  # コンテナイメージデプロイ
+  package_type = "Image"
+
+  # ECRリポジトリ「cqrs-es-example-swift」の :latest を参照
+  image_uri = "${aws_ecr_repository.cqrs_swift.repository_url}:latest"
+
+  # ARM64 で実行 (x86_64 の場合は省略可)
+  architectures = ["arm64"]
+
+  # タイムアウト、メモリなど必要に応じて
+  timeout     = 15
+  memory_size = 512
+
+  # Lambda Web Adapter でHTTPを扱う場合、handlerやruntimeの設定は不要ですが、
+  # Image内でポートをLISTENしておく必要があります。(Dockerfile や Lambda Web Adapterの設定次第)
+}
+
+###############################################################################
+# API Gateway (HTTP API)
+###############################################################################
+resource "aws_apigatewayv2_api" "swift_api" {
+  name          = "swift-api"
+  protocol_type = "HTTP"
+}
+
+# Lambda 連携 (AWS_PROXY)
+resource "aws_apigatewayv2_integration" "swift_integration" {
+  api_id                 = aws_apigatewayv2_api.swift_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.swift_lambda.arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# デフォルトルート (全てのリクエストを Lambda にルーティング)
+resource "aws_apigatewayv2_route" "swift_route" {
+  api_id    = aws_apigatewayv2_api.swift_api.id
+  route_key = "$default"  # どんなパス/メソッドでも受け取る
+  target    = "integrations/${aws_apigatewayv2_integration.swift_integration.id}"
+}
+
+# デフォルトステージ (自動デプロイ)
+resource "aws_apigatewayv2_stage" "swift_stage" {
+  api_id      = aws_apigatewayv2_api.swift_api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+# API Gateway から Lambda を呼び出す権限
+resource "aws_lambda_permission" "apigw_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.swift_lambda.arn
+  principal     = "apigateway.amazonaws.com"
+
+  # このAPIの全ステージからの呼び出しを許可
+  source_arn = "${aws_apigatewayv2_api.swift_api.execution_arn}/*"
+}
