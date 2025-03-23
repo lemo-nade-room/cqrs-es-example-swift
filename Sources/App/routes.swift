@@ -18,5 +18,9 @@ func routes(_ app: Application) throws {
         "PUT hello"
     }
 
+    app.delete("hello") { req in
+        "DELETE hello"
+    }
+
     try app.register(collection: TodoController())
 }
