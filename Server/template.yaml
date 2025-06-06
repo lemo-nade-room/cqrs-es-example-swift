@@ -32,3 +32,18 @@ Resources:
             ApiId: !Ref ServerHttpApi
             Method: ANY
             Path: /command/{proxy+}
+  QueryServerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Sources/Query/Dockerfile
+      DockerContext: .
+      DockerTag: latest
+    Properties:
+      PackageType: Image
+      Events:
+        CommandHttpApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ServerHttpApi
+            Method: ANY
+            Path: /query/{proxy+}
