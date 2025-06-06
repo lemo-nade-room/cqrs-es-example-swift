@@ -1,4 +1,4 @@
-@testable import Server
+@testable import CommandServer
 import VaporTesting
 import Testing
 import Fluent

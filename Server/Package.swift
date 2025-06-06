@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Server",
     platforms: [
-       .macOS(.v15),
+        .macOS(.v15)
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
@@ -13,8 +13,30 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
     ],
     targets: [
+        // MARK: Command
         .executableTarget(
-            name: "Server",
+            name: "CommandServer",
+            dependencies: [
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+            ],
+            path: "Sources/Command/Server",
+            swiftSettings: swiftSettings,
+        ),
+        .testTarget(
+            name: "CommandServerTests",
+            dependencies: [
+                .target(name: "CommandServer"),
+                .product(name: "VaporTesting", package: "vapor"),
+            ],
+            path: "Tests/Command/ServerTests",
+            swiftSettings: swiftSettings,
+        ),
+
+        // MARK: Query
+        .executableTarget(
+            name: "QueryServer",
             dependencies: [
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
@@ -22,22 +44,26 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
             ],
-            swiftSettings: swiftSettings
+            path: "Sources/Query/Server",
+            swiftSettings: swiftSettings,
         ),
         .testTarget(
-            name: "ServerTests",
+            name: "QueryServerTests",
             dependencies: [
-                .target(name: "Server"),
+                .target(name: "QueryServer"),
                 .product(name: "VaporTesting", package: "vapor"),
             ],
-            swiftSettings: swiftSettings
-        )
+            path: "Tests/Query/ServerTests",
+            swiftSettings: swiftSettings,
+        ),
     ],
     swiftLanguageModes: [.v6],
 )
 
-var swiftSettings: [SwiftSetting] { [
-    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
-    .enableUpcomingFeature("NonescapableTypes"),
-    .enableUpcomingFeature("DeprecateApplicationMain"),
-] }
+var swiftSettings: [SwiftSetting] {
+    [
+        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+        .enableUpcomingFeature("NonescapableTypes"),
+        .enableUpcomingFeature("DeprecateApplicationMain"),
+    ]
+}
