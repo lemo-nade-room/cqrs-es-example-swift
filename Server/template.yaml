@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CQRS ES Example Swift
+
+Globals:
+  Function:
+    Architectures:
+      - arm64
+    Timeout: 3
+    MemorySize: 128
+    Tracing: Active
+    LoggingConfig:
+      ApplicationLogLevel: INFO
+Resources:
+  ServerHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: CQRS ES Example Swift Server
+  CommandServerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Sources/Command/Dockerfile
+      DockerContext: .
+      DockerTag: latest
+    Properties:
+      PackageType: Image
+      Events:
+        CommandHttpApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ServerHttpApi
+            Method: ANY
+            Path: /command/{proxy+}
