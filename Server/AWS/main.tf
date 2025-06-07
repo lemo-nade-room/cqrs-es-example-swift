@@ -80,65 +80,65 @@ resource "aws_codepipeline" "stage_deploy" {
   stage {
     name = "Build"
 
-    # action {
-    #   name      = "CommandBuild"
-    #   category  = "Build"
-    #   owner     = "AWS"
-    #   provider  = "CodeBuild"
-    #   input_artifacts = ["SourceArtifact"]
-    #   output_artifacts = ["CommandBuildArtifact"]
-    #   version   = "1"
-    #   region    = var.region
-    #   run_order = 1
-    #
-    #   configuration = {
-    #     ProjectName = aws_codebuild_project.docker_build_and_push.name
-    #     EnvironmentVariables = jsonencode([
-    #       {
-    #         name  = "DOCKERFILE_PATH"
-    #         value = "Server/Sources/Command/Dockerfile"
-    #       },
-    #       {
-    #         name  = "REPOSITORY_URL"
-    #         value = aws_ecr_repository.command_server_function_repository.repository_url, type = "PLAINTEXT"
-    #       },
-    #       {
-    #         name  = "TAG"
-    #         value = "latest"
-    #       },
-    #     ])
-    #   }
-    # }
-    #
-    # action {
-    #   name      = "QueryBuild"
-    #   category  = "Build"
-    #   owner     = "AWS"
-    #   provider  = "CodeBuild"
-    #   input_artifacts = ["SourceArtifact"]
-    #   output_artifacts = ["QueryBuildArtifact"]
-    #   version   = "1"
-    #   region    = var.region
-    #   run_order = 1
-    #
-    #   configuration = {
-    #     ProjectName = aws_codebuild_project.docker_build_and_push.name
-    #     EnvironmentVariables = jsonencode([
-    #       {
-    #         name  = "DOCKERFILE_PATH"
-    #         value = "Server/Sources/Query/Dockerfile"
-    #       },
-    #       {
-    #         name  = "REPOSITORY_URL"
-    #         value = aws_ecr_repository.query_server_function_repository.repository_url, type = "PLAINTEXT"
-    #       },
-    #       {
-    #         name  = "TAG"
-    #         value = "latest"
-    #       },
-    #     ])
-    #   }
-    # }
+    action {
+      name      = "CommandBuild"
+      category  = "Build"
+      owner     = "AWS"
+      provider  = "CodeBuild"
+      input_artifacts = ["SourceArtifact"]
+      output_artifacts = ["CommandBuildArtifact"]
+      version   = "1"
+      region    = var.region
+      run_order = 1
+
+      configuration = {
+        ProjectName = aws_codebuild_project.docker_build_and_push.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "DOCKERFILE_PATH"
+            value = "Server/Sources/Command/Dockerfile"
+          },
+          {
+            name  = "REPOSITORY_URL"
+            value = aws_ecr_repository.command_server_function_repository.repository_url, type = "PLAINTEXT"
+          },
+          {
+            name  = "TAG"
+            value = "latest"
+          },
+        ])
+      }
+    }
+
+    action {
+      name      = "QueryBuild"
+      category  = "Build"
+      owner     = "AWS"
+      provider  = "CodeBuild"
+      input_artifacts = ["SourceArtifact"]
+      output_artifacts = ["QueryBuildArtifact"]
+      version   = "1"
+      region    = var.region
+      run_order = 1
+
+      configuration = {
+        ProjectName = aws_codebuild_project.docker_build_and_push.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "DOCKERFILE_PATH"
+            value = "Server/Sources/Query/Dockerfile"
+          },
+          {
+            name  = "REPOSITORY_URL"
+            value = aws_ecr_repository.query_server_function_repository.repository_url, type = "PLAINTEXT"
+          },
+          {
+            name  = "TAG"
+            value = "latest"
+          },
+        ])
+      }
+    }
 
     action {
       name      = "SAMPackage"
