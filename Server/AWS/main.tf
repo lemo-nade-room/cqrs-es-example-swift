@@ -347,6 +347,12 @@ resource "aws_iam_role" "sam_package_codebuild" {
     ]
   })
 }
+resource "aws_iam_role_policy" "sam_package_role_artifacts_s3" {
+  name = "sam_package_artifacts_s3"
+  role = aws_iam_role.sam_package_codebuild.id
+
+  policy = aws_iam_role_policy.docker_build_role_artifacts_s3.policy
+}
 
 resource "aws_codebuild_project" "docker_build_and_push" {
   name          = "docker_build_and_push"
@@ -437,6 +443,33 @@ resource "aws_iam_role_policy" "docker_build_role_logs" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy" "docker_build_role_artifacts_s3" {
+  name = "docker_build_artifacts_s3"
+  role = aws_iam_role.docker_build_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketVersioning"
+        ]
+        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
       }
     ]
   })
