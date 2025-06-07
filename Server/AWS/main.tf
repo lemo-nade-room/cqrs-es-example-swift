@@ -342,27 +342,9 @@ resource "aws_iam_role_policy" "cloudformation_deploy_tag" {
     ]
   })
 }
-data "aws_iam_policy_document" "cloud_formation_api_gateway" {
-  statement {
-    sid    = "ApiGatewayV2CreateAndTag"
-    effect = "Allow"
-    actions = [
-      "apigateway:POST",
-      "apigateway:GET",
-      "apigateway:PATCH",
-      "apigateway:PUT",
-      "apigateway:DELETE"
-    ]
-    resources = [
-      "arn:aws:apigateway:${var.region}::/*",
-    ]
-  }
-}
-
-resource "aws_iam_role_policy" "cloud_formation_api_gateway" {
-  name   = "cloudformation-apigw-v2"
-  role   = aws_iam_role.cloudformation_deploy.id
-  policy = data.aws_iam_policy_document.cloud_formation_api_gateway.json
+resource "aws_iam_role_policy_attachment" "cf_apigw_admin" {
+  role       = aws_iam_role.cloudformation_deploy.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator"
 }
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
