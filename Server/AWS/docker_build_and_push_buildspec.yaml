@@ -10,7 +10,7 @@ phases:
 
   build:
     commands:
-      - docker build --file "$DOCKER_FILE_PATH" --tag "$REPOSITORY_URL:$TAG" ./Server
+      - docker build --file "$DOCKERFILE_PATH" --tag "$REPOSITORY_URL:$TAG" ./Server
 
   post_build:
     commands:

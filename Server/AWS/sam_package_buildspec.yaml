@@ -1,0 +1,29 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      - cd Server
+
+  build:
+    commands:
+      - |
+        sam package \
+          --template-file template.yaml \
+          --output-template-file packaged.yaml \
+          --image-repositories CommandServerFunction=$COMMAND_SERVER_FUNCTION_IMAGE_URI \
+          --image-repositories QueryServerFunction=$QUERY_SERVER_FUNCTION_IMAGE_URI
+
+artifacts:
+  base-directory: Server
+  files:
+    - packaged.yaml
+
+#  command_server_function_image_uri = "833542146484.dkr.ecr.ap-northeast-1.amazonaws.com/command-server-function"
+#  github_connection_arn = "arn:aws:codeconnections:ap-northeast-1:833542146484:connection/0d569985-c74d-4046-bf03-247a1221c8d4"
+#  query_server_function_image_uri = "833542146484.dkr.ecr.ap-northeast-1.amazonaws.com/query-server-function"
+#export COMMAND_SERVER_FUNCTION_IMAGE_URI=833542146484.dkr.ecr.ap-northeast-1.amazonaws.com/command-server-function
+#export QUERY_SERVER_FUNCTION_IMAGE_URI=833542146484.dkr.ecr.ap-northeast-1.amazonaws.com/query-server-function
