@@ -413,17 +413,33 @@ resource "aws_iam_role_policy" "docker_build_role_policy" {
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
           "ecr:PutImage",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
         ]
         Resource = [
           aws_ecr_repository.command_server_function_repository.arn,
-          aws_ecr_repository.query_server_function_repository.arn,
+          aws_ecr_repository.query_server_function_repository.arn
         ]
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy" "docker_build_ecr_auth" {
+  name = "docker_build_ecr_auth"
+  role = aws_iam_role.docker_build_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
       }
     ]
   })
