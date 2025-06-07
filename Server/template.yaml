@@ -47,3 +47,111 @@ Resources:
             ApiId: !Ref ServerHttpApi
             Method: ANY
             Path: /query/{proxy+}
+# ↓ 追加
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Name: "cqrs-es-example-swift-stg-sam"
+      Source:
+        BuildSpec: "Server/buildspec.yaml"
+        InsecureSsl: false
+        Type: "CODEPIPELINE"
+      Artifacts:
+        EncryptionDisabled: false
+        Name: "cqrs-es-example-swift-stg-sam"
+        Packaging: "NONE"
+        Type: "CODEPIPELINE"
+      Cache:
+        Type: "NO_CACHE"
+      Environment:
+        ComputeType: "BUILD_GENERAL1_LARGE"
+        Image: "aws/codebuild/amazonlinux-aarch64-standard:3.0-25.03.03"
+        ImagePullCredentialsType: "CODEBUILD"
+        PrivilegedMode: false
+        Type: "ARM_CONTAINER"
+      ServiceRole: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/codebuild-cqrs-es-example-swift-stg-sam-service-role"
+      TimeoutInMinutes: 15
+      QueuedTimeoutInMinutes: 480
+      EncryptionKey: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3"
+      BadgeEnabled: false
+      LogsConfig:
+        CloudWatchLogs:
+          Status: "ENABLED"
+        S3Logs:
+          Status: "DISABLED"
+          EncryptionDisabled: false
+      Visibility: "PRIVATE"
+  CodePipelinePipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      Name: "cqrs-es-example-swift-stg-deploy"
+      RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/AWSCodePipelineServiceRole-${AWS::Region}-cqrs-es-example-swift"
+      ArtifactStore:
+        Location: !Sub "codepipeline-${AWS::Region}-3f6dca6611cc-4e8c-8447-61f82737e9bf"
+        Type: "S3"
+      Stages:
+        -
+          Name: "Source"
+          Actions:
+            -
+              Name: "Source"
+              ActionTypeId:
+                Category: "Source"
+                Owner: "AWS"
+                Provider: "CodeStarSourceConnection"
+                Version: "1"
+              Configuration:
+                BranchName: "main"
+                ConnectionArn: !Sub "arn:aws:codeconnections:${AWS::Region}:${AWS::AccountId}:connection/f3219a70-5634-4694-8e07-29412416bfb6"
+                DetectChanges: "false"
+                FullRepositoryId: "lemo-nade-room/cqrs-es-example-swift"
+                OutputArtifactFormat: "CODE_ZIP"
+              OutputArtifacts:
+                -
+                  Name: "SourceArtifact"
+              Region: !Ref AWS::Region
+              Namespace: "SourceVariables"
+              RunOrder: 1
+        -
+          Name: "Build"
+          Actions:
+            -
+              Name: "Build"
+              ActionTypeId:
+                Category: "Build"
+                Owner: "AWS"
+                Provider: "CodeBuild"
+                Version: "1"
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                -
+                  Name: "SourceArtifact"
+              OutputArtifacts:
+                -
+                  Name: "BuildArtifact"
+              Region: !Ref AWS::Region
+              Namespace: "BuildVariables"
+              RunOrder: 1
+  IAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      RoleName: !Sub "AWSCodePipelineServiceRole-${AWS::Region}-cqrs-es-example-swift"
+      AssumeRolePolicyDocument: !Sub "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"CodePipelineTrustPolicy\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codepipeline.amazonaws.com\"},\"Action\":\"sts:AssumeRole\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"${AWS::AccountId}\"}}}]}"
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/CodePipeline-CodeBuild-${AWS::Region}-cqrs-es-example-swift-stg-deploy"
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/AWSCodePipelineServiceRole-${AWS::Region}-cqrs-es-example-swift-stg-deploy"
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/CodePipeline-CodeConnections-${AWS::Region}-cqrs-es-example-swift-stg-deploy"
+
+  IAMRole2:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      RoleName: "codebuild-cqrs-es-example-swift-stg-sam-service-role"
+      AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"codebuild.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/CodeBuildBasePolicy-cqrs-es-example-swift-stg-sam-${AWS::Region}"
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
