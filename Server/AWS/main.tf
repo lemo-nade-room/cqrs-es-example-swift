@@ -156,8 +156,8 @@ resource "aws_codepipeline" "stage_deploy" {
         RoleArn      = aws_iam_role.cloudformation_deploy.arn
         TemplatePath = "SAMPackageArtifact::packaged.yaml"
         ParameterOverrides = jsonencode({
-          CommandServerFunctionImageUri = aws_ecr_repository.command_server_function_repository.repository_url
-          QueryServerFunctionImageUri   = aws_ecr_repository.query_server_function_repository.repository_url
+          CommandServerFunctionImageUri = "${aws_ecr_repository.command_server_function_repository.repository_url}:latest"
+          QueryServerFunctionImageUri   = "${aws_ecr_repository.query_server_function_repository.repository_url}:latest"
         })
       }
     }
