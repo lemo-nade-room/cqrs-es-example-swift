@@ -353,6 +353,11 @@ resource "aws_iam_role_policy" "sam_package_role_artifacts_s3" {
 
   policy = aws_iam_role_policy.docker_build_role_artifacts_s3.policy
 }
+resource "aws_iam_role_policy" "sam_package_role_logs" {
+  name = "sam_package_logs"
+  role = aws_iam_role.sam_package_codebuild.id
+  policy = aws_iam_role_policy.docker_build_role_logs.policy
+}
 
 resource "aws_codebuild_project" "docker_build_and_push" {
   name          = "docker_build_and_push"
