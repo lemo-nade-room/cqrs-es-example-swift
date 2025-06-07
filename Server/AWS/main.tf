@@ -150,7 +150,7 @@ resource "aws_codepipeline" "stage_deploy" {
       run_order = 1
 
       configuration = {
-        ActionMode   = "CREATE_UPDATE"
+        ActionMode   = "REPLACE_ON_FAILURE"
         StackName    = "Stage"
         Capabilities = "CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND"
         RoleArn      = aws_iam_role.cloudformation_deploy.arn
