@@ -4,14 +4,15 @@ env:
   shell: bash
 
 phases:
-  build:
+  install:
     commands:
       - cd Server
+  build:
+    commands:
       - sam build
 
   post_build:
     commands:
-      - cd Server
       - sam deploy
 cache:
   modes:
