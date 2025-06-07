@@ -13,6 +13,14 @@ resource "aws_ecr_repository" "command_server_function_repository" {
     scan_on_push = true
   }
 }
+resource "aws_ecr_repository" "query_server_function_repository" {
+  name                 = "query-server-function"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
 
 # ================================
 # Stage Deploy Pipeline
