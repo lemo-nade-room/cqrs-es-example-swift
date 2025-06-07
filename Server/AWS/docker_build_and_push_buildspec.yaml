@@ -1,0 +1,21 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
+
+  build:
+    commands:
+      - docker build --file "$DOCKER_FILE_PATH" --tag "$REPOSITORY_URL:$TAG" ./Server
+
+  post_build:
+    commands:
+      - docker push "$REPOSITORY_URL:$TAG"
+
+cache:
+  modes:
+    - LOCAL_DOCKER_LAYER_CACHE
