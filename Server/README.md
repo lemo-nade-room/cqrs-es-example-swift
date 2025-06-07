@@ -11,6 +11,7 @@ event-store-adapter-swiftを使用した、SwiftによるCQRS・ESのサンプ�
 - Dockerインストール済み
 - AWS SAM CLIのインストール済み
 - AWSアカウントの認証情報を環境変数に登録済み
+- AWSコンソールから『CodePipeline』>『設定』>『接続』でGitHubアプリとの接続（接続名"github"）を作成済み
 
 ### ビルド
 
