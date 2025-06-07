@@ -213,6 +213,38 @@ resource "aws_iam_role_policy" "cloudformation_deploy_policy" {
     ]
   })
 }
+resource "aws_iam_role_policy" "cloudformation_deploy_lambda" {
+  name = "cloudformation-deploy-lambda"
+  role = aws_iam_role.cloudformation_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:CreateFunction",
+          "lambda:DeleteFunction",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:GetFunction",
+          "lambda:PublishVersion",
+          "lambda:AddPermission",
+          "lambda:RemovePermission",
+          "lambda:TagResource",
+          "lambda:UntagResource"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "cloudformation_deploy_s3" {
   name = "cloudformation-deploy-s3"
   role = aws_iam_role.cloudformation_deploy.id
