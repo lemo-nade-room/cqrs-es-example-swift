@@ -73,7 +73,7 @@ resource "aws_codepipeline" "stage_deploy" {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
         EnvironmentVariables = jsonencode([
           {
-            name  = "$DOCKERFILE_PATH"
+            name  = "DOCKERFILE_PATH"
             value = "Server/Sources/Command/Dockerfile"
           },
           {
@@ -103,7 +103,7 @@ resource "aws_codepipeline" "stage_deploy" {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
         EnvironmentVariables = jsonencode([
           {
-            name  = "$DOCKERFILE_PATH"
+            name  = "DOCKERFILE_PATH"
             value = "Server/Sources/Query/Dockerfile"
           },
           {
