@@ -422,3 +422,22 @@ resource "aws_iam_role_policy" "docker_build_role_policy" {
     ]
   })
 }
+resource "aws_iam_role_policy" "docker_build_role_logs" {
+  name = "docker_build_logs"
+  role = aws_iam_role.docker_build_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
