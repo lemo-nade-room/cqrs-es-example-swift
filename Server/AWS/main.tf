@@ -231,6 +231,22 @@ data "aws_iam_policy_document" "codepipeline_trust" {
     }
   }
 }
+resource "aws_iam_role_policy" "codepipeline_use_connection" {
+  name = "codepipeline-use-connection"
+  role = aws_iam_role.codepipeline.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "codestar-connections:UseConnection"
+        Resource = data.aws_codestarconnections_connection.github_connection.arn
+      }
+    ]
+  })
+}
+
 resource "aws_codebuild_project" "sam_package" {
   name          = "sam_package"
   description   = "sam packageを行い、packaged.yamlを作成します"
