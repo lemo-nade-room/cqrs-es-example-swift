@@ -239,6 +239,36 @@ resource "aws_iam_role_policy" "cloudformation_deploy_s3" {
     ]
   })
 }
+resource "aws_iam_role_policy" "cloudformation_deploy_iam" {
+  name = "cloudformation-deploy-iam"
+  role = aws_iam_role.cloudformation_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
   bucket = "stage-deploy-codepipeline-bucket"
