@@ -213,6 +213,32 @@ resource "aws_iam_role_policy" "cloudformation_deploy_policy" {
     ]
   })
 }
+resource "aws_iam_role_policy" "cloudformation_deploy_s3" {
+  name = "cloudformation-deploy-s3"
+  role = aws_iam_role.cloudformation_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketVersioning"
+        ]
+        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
+      }
+    ]
+  })
+}
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
   bucket = "stage-deploy-codepipeline-bucket"
@@ -354,8 +380,8 @@ resource "aws_iam_role_policy" "sam_package_role_artifacts_s3" {
   policy = aws_iam_role_policy.docker_build_role_artifacts_s3.policy
 }
 resource "aws_iam_role_policy" "sam_package_role_logs" {
-  name = "sam_package_logs"
-  role = aws_iam_role.sam_package_codebuild.id
+  name   = "sam_package_logs"
+  role   = aws_iam_role.sam_package_codebuild.id
   policy = aws_iam_role_policy.docker_build_role_logs.policy
 }
 
