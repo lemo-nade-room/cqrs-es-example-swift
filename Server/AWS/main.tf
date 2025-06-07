@@ -80,65 +80,65 @@ resource "aws_codepipeline" "stage_deploy" {
   stage {
     name = "Build"
 
-    action {
-      name      = "CommandBuild"
-      category  = "Build"
-      owner     = "AWS"
-      provider  = "CodeBuild"
-      input_artifacts = ["SourceArtifact"]
-      output_artifacts = ["CommandBuildArtifact"]
-      version   = "1"
-      region    = var.region
-      run_order = 1
-
-      configuration = {
-        ProjectName = aws_codebuild_project.docker_build_and_push.name
-        EnvironmentVariables = jsonencode([
-          {
-            name  = "DOCKERFILE_PATH"
-            value = "Server/Sources/Command/Dockerfile"
-          },
-          {
-            name  = "REPOSITORY_URL"
-            value = aws_ecr_repository.command_server_function_repository.repository_url, type = "PLAINTEXT"
-          },
-          {
-            name  = "TAG"
-            value = "latest"
-          },
-        ])
-      }
-    }
-
-    action {
-      name      = "QueryBuild"
-      category  = "Build"
-      owner     = "AWS"
-      provider  = "CodeBuild"
-      input_artifacts = ["SourceArtifact"]
-      output_artifacts = ["QueryBuildArtifact"]
-      version   = "1"
-      region    = var.region
-      run_order = 1
-
-      configuration = {
-        ProjectName = aws_codebuild_project.docker_build_and_push.name
-        EnvironmentVariables = jsonencode([
-          {
-            name  = "DOCKERFILE_PATH"
-            value = "Server/Sources/Query/Dockerfile"
-          },
-          {
-            name  = "REPOSITORY_URL"
-            value = aws_ecr_repository.query_server_function_repository.repository_url, type = "PLAINTEXT"
-          },
-          {
-            name  = "TAG"
-            value = "latest"
-          },
-        ])
-      }
-    }
+    # action {
+    #   name      = "CommandBuild"
+    #   category  = "Build"
+    #   owner     = "AWS"
+    #   provider  = "CodeBuild"
+    #   input_artifacts = ["SourceArtifact"]
+    #   output_artifacts = ["CommandBuildArtifact"]
+    #   version   = "1"
+    #   region    = var.region
+    #   run_order = 1
+    #
+    #   configuration = {
+    #     ProjectName = aws_codebuild_project.docker_build_and_push.name
+    #     EnvironmentVariables = jsonencode([
+    #       {
+    #         name  = "DOCKERFILE_PATH"
+    #         value = "Server/Sources/Command/Dockerfile"
+    #       },
+    #       {
+    #         name  = "REPOSITORY_URL"
+    #         value = aws_ecr_repository.command_server_function_repository.repository_url, type = "PLAINTEXT"
+    #       },
+    #       {
+    #         name  = "TAG"
+    #         value = "latest"
+    #       },
+    #     ])
+    #   }
+    # }
+    #
+    # action {
+    #   name      = "QueryBuild"
+    #   category  = "Build"
+    #   owner     = "AWS"
+    #   provider  = "CodeBuild"
+    #   input_artifacts = ["SourceArtifact"]
+    #   output_artifacts = ["QueryBuildArtifact"]
+    #   version   = "1"
+    #   region    = var.region
+    #   run_order = 1
+    #
+    #   configuration = {
+    #     ProjectName = aws_codebuild_project.docker_build_and_push.name
+    #     EnvironmentVariables = jsonencode([
+    #       {
+    #         name  = "DOCKERFILE_PATH"
+    #         value = "Server/Sources/Query/Dockerfile"
+    #       },
+    #       {
+    #         name  = "REPOSITORY_URL"
+    #         value = aws_ecr_repository.query_server_function_repository.repository_url, type = "PLAINTEXT"
+    #       },
+    #       {
+    #         name  = "TAG"
+    #         value = "latest"
+    #       },
+    #     ])
+    #   }
+    # }
 
     action {
       name      = "SAMPackage"
@@ -341,6 +341,28 @@ resource "aws_iam_role_policy" "cloudformation_deploy_tag" {
       }
     ]
   })
+}
+data "aws_iam_policy_document" "cloud_formation_api_gateway" {
+  statement {
+    sid    = "ApiGatewayV2CreateAndTag"
+    effect = "Allow"
+    actions = [
+      "apigateway:POST",
+      "apigateway:GET",
+      "apigateway:PATCH",
+      "apigateway:PUT",
+      "apigateway:DELETE"
+    ]
+    resources = [
+      "arn:aws:apigateway:${var.region}::/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "cloud_formation_api_gateway" {
+  name   = "cloudformation-apigw-v2"
+  role   = aws_iam_role.cloudformation_deploy.id
+  policy = data.aws_iam_policy_document.cloud_formation_api_gateway.json
 }
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
