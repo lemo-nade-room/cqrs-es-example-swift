@@ -246,6 +246,33 @@ resource "aws_iam_role_policy" "codepipeline_use_connection" {
     ]
   })
 }
+resource "aws_iam_role_policy" "codepipeline_artifacts_s3" {
+  name = "codepipeline-artifacts-s3"
+  role = aws_iam_role.codepipeline.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketVersioning"
+        ]
+        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
+      }
+    ]
+  })
+}
 
 resource "aws_codebuild_project" "sam_package" {
   name          = "sam_package"
