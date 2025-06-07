@@ -25,6 +25,21 @@ resource "aws_ecr_repository" "query_server_function_repository" {
 # ================================
 # Deploy Pipeline
 # ================================
+resource "aws_iam_role" "codepipeline" {
+  name               = "codepipeline_role"
+  assume_role_policy = data.aws_iam_policy_document.codepipeline_trust.json
+}
+data "aws_iam_policy_document" "codepipeline_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type = "Service"
+      identifiers = ["codepipeline.amazonaws.com"]
+    }
+  }
+}
+
+
 resource "aws_codebuild_project" "docker_build_and_push" {
   name          = "docker_build_and_push"
   description   = "Docker ImageをBuildし、ECRへプッシュするCodeBuildプロジェクトです。使用時にはREPOSITORY_URL, DOCKER_FILE_PATH, TAGの環境変数のOverrideが必要です"
