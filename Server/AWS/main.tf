@@ -127,7 +127,7 @@ resource "aws_codepipeline" "stage_deploy" {
       output_artifacts = ["SAMPackageArtifact"]
       version   = "1"
       region    = var.region
-      run_order = 2
+      run_order = 1
 
       configuration = {
         ProjectName = aws_codebuild_project.sam_package.name
