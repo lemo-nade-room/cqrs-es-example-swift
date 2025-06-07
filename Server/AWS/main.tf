@@ -273,6 +273,27 @@ resource "aws_iam_role_policy" "codepipeline_artifacts_s3" {
     ]
   })
 }
+resource "aws_iam_role_policy" "codepipeline_start_build" {
+  name = "codepipeline-start-build"
+  role = aws_iam_role.codepipeline.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "codebuild:StartBuild",
+          "codebuild:BatchGetBuilds"
+        ]
+        Resource = [
+          aws_codebuild_project.docker_build_and_push.arn,
+          aws_codebuild_project.sam_package.arn
+        ]
+      }
+    ]
+  })
+}
 
 resource "aws_codebuild_project" "sam_package" {
   name          = "sam_package"
