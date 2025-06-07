@@ -269,6 +269,25 @@ resource "aws_iam_role_policy" "cloudformation_deploy_iam" {
     ]
   })
 }
+resource "aws_iam_role_policy" "cloudformation_deploy_tag" {
+  name = "cloudformation-deploy-tag"
+  role = aws_iam_role.cloudformation_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
   bucket = "stage-deploy-codepipeline-bucket"
