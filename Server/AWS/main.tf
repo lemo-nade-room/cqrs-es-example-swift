@@ -395,6 +395,11 @@ resource "aws_codebuild_project" "docker_build_and_push" {
     type = "CODEPIPELINE"
   }
 
+  cache {
+    type = "LOCAL"
+    modes = ["LOCAL_DOCKER_LAYER_CACHE"]
+  }
+
   environment {
     compute_type                = "BUILD_GENERAL1_LARGE"
     image                       = "aws/codebuild/amazonlinux-aarch64-standard:3.0-25.03.03"
