@@ -1,27 +1,41 @@
-# Server
+# CQRS ES Example Swift
 
-💧 A project built with the Vapor web framework.
+event-store-adapter-swiftを使用した、SwiftによるCQRS・ESのサンプルサーバー
 
-## Getting Started
+## はじめ方
 
-To build the project using the Swift Package Manager, run the following command in the terminal from the root of the project:
-```bash
-swift build
+### 事前準備
+
+以下の環境を事前に整えてください。
+
+- Dockerインストール済み
+- AWS SAM CLIのインストール済み
+- AWSアカウントの認証情報を環境変数に登録済み
+
+### ビルド
+
+DockerでLambda関数用のDocker Imageをbuildします。
+
+```shell
+sam build
 ```
 
-To run the project and start the server, use the following command:
-```bash
-swift run
+# デプロイ
+
+アプリケーションをAWS上にデプロイします。
+
+`sam build`が完了していることが前提です。
+
+```shell
+sam deploy
 ```
 
-To execute tests, use the following command:
-```bash
-swift test
+# 削除
+
+デプロイしたアプリケーションを削除します。
+
+`sam deploy`が完了していることが前提です。
+
+```shell
+sam delete --stack-name cqrs-es-example-swift-dev
 ```
-
-### See more
-
-- [Vapor Website](https://vapor.codes)
-- [Vapor Documentation](https://docs.vapor.codes)
-- [Vapor GitHub](https://github.com/vapor)
-- [Vapor Community](https://github.com/vapor-community)

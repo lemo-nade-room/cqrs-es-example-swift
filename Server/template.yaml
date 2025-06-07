@@ -12,6 +12,7 @@ Globals:
     Tracing: Active
     LoggingConfig:
       ApplicationLogLevel: INFO
+      LogFormat: JSON
 Resources:
   ServerHttpApi:
     Type: AWS::Serverless::HttpApi
@@ -41,7 +42,7 @@ Resources:
     Properties:
       PackageType: Image
       Events:
-        CommandHttpApi:
+        QueryHttpApi:
           Type: HttpApi
           Properties:
             ApiId: !Ref ServerHttpApi

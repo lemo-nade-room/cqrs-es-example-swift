@@ -4,3 +4,11 @@ version = 0.1
 cached = true
 parallel = true
 mount_symlinks = true
+[default.deploy.parameters]
+stack_name = "cqrs-es-example-swift-dev"
+resolve_s3 = true
+s3_prefix = "cqrs-es-example-swift-dev"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_image_repos = true
