@@ -1,0 +1,18 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  build:
+    commands:
+      - cd Server
+      - sam build
+
+  post_build:
+    commands:
+      - cd Server
+      - sam deploy
+cache:
+  modes:
+    - LOCAL_DOCKER_LAYER_CACHE
