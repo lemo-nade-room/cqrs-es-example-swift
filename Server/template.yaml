@@ -24,6 +24,7 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       Name: CQRS ES Example Swift Server
+      StageName: Stage
   CommandServerFunction:
     Type: AWS::Serverless::Function
     Properties:

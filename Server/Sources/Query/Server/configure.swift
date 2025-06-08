@@ -2,6 +2,10 @@ import Vapor
 
 func configure(_ app: Application) async throws {
     app.get("query", "healthcheck") { _ in
-        "Query 8GiB 4vCPU!"
+        "Query Running"
+    }
+
+    app.get("Stage", "query", "healthcheck") { _ in
+        "Stage Query Running"
     }
 }
