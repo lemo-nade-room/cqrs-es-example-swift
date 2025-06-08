@@ -13,7 +13,7 @@ func configure(_ app: Application) async throws {
         case "Staging": try Servers.Server2.url()
         default: try Servers.Server1.url()
         }
-
+    app.logger.info("Service registered on Server URL: \(serverURL)")
     try service.registerHandlers(on: transport, serverURL: serverURL)
 
     // ================================
