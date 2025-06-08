@@ -203,6 +203,7 @@ resource "aws_codepipeline" "stage_deploy" {
         ParameterOverrides = jsonencode({
           CommandServerFunctionImageUri = "#{CommandBuild.IMAGE_URI}"
           QueryServerFunctionImageUri   = "#{QueryBuild.IMAGE_URI}"
+          ServerEnvironment             = "Staging"
         })
       }
     }

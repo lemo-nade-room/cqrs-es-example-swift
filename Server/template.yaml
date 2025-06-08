@@ -19,6 +19,9 @@ Parameters:
   QueryServerFunctionImageUri:
     Type: String
     Description: ECR URI for Query
+  ServerEnvironment:
+    Type: String
+    Description: Serverの環境（Staging)
 Resources:
   ServerHttpApi:
     Type: AWS::Serverless::HttpApi
@@ -30,6 +33,9 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref CommandServerFunctionImageUri
+      Environment:
+        Variables:
+          SERVER: !Ref ServerEnvironment
       Events:
         CommandHttpApi:
           Type: HttpApi
