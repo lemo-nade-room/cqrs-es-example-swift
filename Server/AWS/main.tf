@@ -90,6 +90,7 @@ resource "aws_codepipeline" "stage_deploy" {
       version   = "1"
       region    = var.region
       run_order = 1
+      namespace = "CommandBuild"
 
       configuration = {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
@@ -120,6 +121,7 @@ resource "aws_codepipeline" "stage_deploy" {
       version   = "1"
       region    = var.region
       run_order = 1
+      namespace = "QueryBuild"
 
       configuration = {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
@@ -178,8 +180,8 @@ resource "aws_codepipeline" "stage_deploy" {
         RoleArn      = aws_iam_role.cloudformation_deploy.arn
         TemplatePath = "SAMPackageArtifact::packaged.yaml"
         ParameterOverrides = jsonencode({
-          CommandServerFunctionImageUri = "${aws_ecr_repository.command_server_function_repository.repository_url}:latest"
-          QueryServerFunctionImageUri   = "${aws_ecr_repository.query_server_function_repository.repository_url}:latest"
+          CommandServerFunctionImageUri = "#{CommandBuild.IMAGE_URI}"
+          QueryServerFunctionImageUri   = "#{QueryBuild.IMAGE_URI}"
         })
       }
     }
