@@ -12,8 +12,4 @@ func configure(_ app: Application) async throws {
         }
 
     try service.registerHandlers(on: transport, serverURL: serverURL)
-
-    app.get("**") { req in
-        "\(req.method): \(req.url), \(req.url.path)"
-    }
 }
