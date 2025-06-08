@@ -70,7 +70,7 @@ resource "aws_ecr_lifecycle_policy" "query_server_function" {
 # ================================
 resource "aws_codepipeline" "stage_deploy" {
   name     = "stage-deploy-pipeline"
-  role_arn = aws_iam_role.codepipeline.arn
+  role_arn = aws_iam_role.super_role.arn
 
   artifact_store {
     location = aws_s3_bucket.stage_deploy_codepipeline_bucket.bucket
@@ -190,7 +190,7 @@ resource "aws_codepipeline" "stage_deploy" {
       provider  = "CloudFormation"
       version   = "1"
       region    = var.region
-      role_arn  = aws_iam_role.cloudformation_deploy.arn
+      role_arn  = aws_iam_role.super_role.arn
       input_artifacts = ["SAMPackageArtifact"]
       run_order = 1
 
@@ -198,7 +198,7 @@ resource "aws_codepipeline" "stage_deploy" {
         ActionMode   = "REPLACE_ON_FAILURE"
         StackName    = "Stage"
         Capabilities = "CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND"
-        RoleArn      = aws_iam_role.cloudformation_deploy.arn
+        RoleArn      = aws_iam_role.super_role.arn
         TemplatePath = "SAMPackageArtifact::packaged.yaml"
         ParameterOverrides = jsonencode({
           CommandServerFunctionImageUri = "#{CommandBuild.IMAGE_URI}"
@@ -209,254 +209,16 @@ resource "aws_codepipeline" "stage_deploy" {
     }
   }
 }
-resource "aws_iam_role" "cloudformation_deploy" {
-  name = "cloudformation_deploy_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          AWS = aws_iam_role.codepipeline.arn
-        }
-        Action = "sts:AssumeRole"
-      },
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudformation.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      },
-    ]
-  })
-}
-resource "aws_iam_role_policy" "cloudformation_deploy_policy" {
-  name = "cloudformation_deploy_policy"
-  role = aws_iam_role.cloudformation_deploy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "cloudformation:CreateStack",
-          "cloudformation:UpdateStack",
-          "cloudformation:DeleteStack",
-          "cloudformation:CreateChangeSet",
-          "cloudformation:DeleteChangeSet",
-          "cloudformation:DescribeChangeSet",
-          "cloudformation:ExecuteChangeSet",
-          "cloudformation:DescribeStacks",
-          "cloudformation:DescribeStackEvents",
-          "cloudformation:GetTemplate",
-          "cloudformation:ValidateTemplate"
-        ],
-        Resource = "*"
-      },
-    ]
-  })
-}
-resource "aws_iam_role_policy" "cloudformation_deploy_lambda" {
-  name = "cloudformation-deploy-lambda"
-  role = aws_iam_role.cloudformation_deploy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "lambda:CreateFunction",
-          "lambda:DeleteFunction",
-          "lambda:UpdateFunctionCode",
-          "lambda:UpdateFunctionConfiguration",
-          "lambda:GetFunction",
-          "lambda:PublishVersion",
-          "lambda:AddPermission",
-          "lambda:RemovePermission",
-          "lambda:TagResource",
-          "lambda:UntagResource"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "iam:PassRole"
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "cloudformation_deploy_s3" {
-  name = "cloudformation-deploy-s3"
-  role = aws_iam_role.cloudformation_deploy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion"
-        ]
-        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "cloudformation_deploy_iam" {
-  name = "cloudformation-deploy-iam"
-  role = aws_iam_role.cloudformation_deploy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:PassRole"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:CreateRole",
-          "iam:DeleteRole",
-          "iam:GetRole",
-          "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:DeleteRolePolicy"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "cloudformation_deploy_tag" {
-  name = "cloudformation-deploy-tag"
-  role = aws_iam_role.cloudformation_deploy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:TagRole",
-          "iam:UntagRole",
-          "iam:ListRoleTags"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy_attachment" "cf_apigw_admin" {
-  role       = aws_iam_role.cloudformation_deploy.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator"
-}
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
   bucket = "stage-deploy-codepipeline-bucket"
-}
-
-resource "aws_iam_role" "codepipeline" {
-  name               = "codepipeline_role"
-  assume_role_policy = data.aws_iam_policy_document.codepipeline_trust.json
-}
-data "aws_iam_policy_document" "codepipeline_trust" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type = "Service"
-      identifiers = ["codepipeline.amazonaws.com"]
-    }
-  }
-}
-resource "aws_iam_role_policy" "codepipeline_use_connection" {
-  name = "codepipeline-use-connection"
-  role = aws_iam_role.codepipeline.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "codestar-connections:UseConnection"
-        Resource = data.aws_codestarconnections_connection.github_connection.arn
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "codepipeline_artifacts_s3" {
-  name = "codepipeline-artifacts-s3"
-  role = aws_iam_role.codepipeline.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:GetObjectVersion"
-        ]
-        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "codepipeline_start_build" {
-  name = "codepipeline-start-build"
-  role = aws_iam_role.codepipeline.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "codebuild:StartBuild",
-          "codebuild:BatchGetBuilds"
-        ]
-        Resource = [
-          aws_codebuild_project.docker_build_and_push.arn,
-          aws_codebuild_project.sam_package.arn
-        ]
-      }
-    ]
-  })
 }
 
 resource "aws_codebuild_project" "sam_package" {
   name          = "sam_package"
   description   = "sam packageを行い、packaged.yamlを作成します"
   build_timeout = 5
-  service_role  = aws_iam_role.sam_package_codebuild.arn
+  service_role  = aws_iam_role.super_role.arn
 
   artifacts {
     type = "CODEPIPELINE"
@@ -489,38 +251,13 @@ resource "aws_codebuild_project" "sam_package" {
     buildspec = "Server/AWS/sam_package_buildspec.yaml"
   }
 }
-resource "aws_iam_role" "sam_package_codebuild" {
-  name = "sam_package_codebuild_role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "sam_package_role_artifacts_s3" {
-  name = "sam_package_artifacts_s3"
-  role = aws_iam_role.sam_package_codebuild.id
 
-  policy = aws_iam_role_policy.docker_build_role_artifacts_s3.policy
-}
-resource "aws_iam_role_policy" "sam_package_role_logs" {
-  name   = "sam_package_logs"
-  role   = aws_iam_role.sam_package_codebuild.id
-  policy = aws_iam_role_policy.docker_build_role_logs.policy
-}
 
 resource "aws_codebuild_project" "docker_build_and_push" {
   name          = "docker_build_and_push"
   description   = "Docker ImageをBuildし、ECRへプッシュするCodeBuildプロジェクトです。使用時にはREPOSITORY_URL, DOCKERFILE_PATH, TAGの環境変数のOverrideが必要です"
   build_timeout = 15
-  service_role  = aws_iam_role.docker_build_role.arn
+  service_role  = aws_iam_role.super_role.arn
 
   artifacts {
     type = "CODEPIPELINE"
@@ -556,105 +293,35 @@ resource "aws_codebuild_project" "docker_build_and_push" {
   }
 }
 
-resource "aws_iam_role" "docker_build_role" {
-  name = "docker_build_role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-      }
-    ]
-  })
+# ================================
+# Super IAM Role
+# ================================
+resource "aws_iam_role" "super_role" {
+  name               = "super_role"
+  assume_role_policy = data.aws_iam_policy_document.super_role_trust.json
 }
-resource "aws_iam_role_policy" "docker_build_role_policy" {
-  name = "docker_build_ecr"
-  role = aws_iam_role.docker_build_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:DescribeImages",
-        ]
-        Resource = [
-          aws_ecr_repository.command_server_function_repository.arn,
-          aws_ecr_repository.query_server_function_repository.arn
-        ]
-      }
-    ]
-  })
+resource "aws_iam_role_policy_attachment" "super_role_power_user" {
+  role       = aws_iam_role.super_role.name
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }
-resource "aws_iam_role_policy" "docker_build_ecr_auth" {
-  name = "docker_build_ecr_auth"
-  role = aws_iam_role.docker_build_role.id
+resource "aws_iam_role_policy_attachment" "super_role_iam_full" {
+  role       = aws_iam_role.super_role.name
+  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+}
+data "aws_iam_policy_document" "super_role_trust" {
+  statement {
+    sid    = "AWSServicePrincipals"
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "ecr:GetAuthorizationToken"
-        Resource = "*"
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "docker_build_role_logs" {
-  name = "docker_build_logs"
-  role = aws_iam_role.docker_build_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-resource "aws_iam_role_policy" "docker_build_role_artifacts_s3" {
-  name = "docker_build_artifacts_s3"
-  role = aws_iam_role.docker_build_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:PutObject"
-        ]
-        Resource = "${aws_s3_bucket.stage_deploy_codepipeline_bucket.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = aws_s3_bucket.stage_deploy_codepipeline_bucket.arn
-      }
-    ]
-  })
+    principals {
+      type = "Service"
+      identifiers = [
+        "codebuild.amazonaws.com",
+        "codepipeline.amazonaws.com",
+        "cloudformation.amazonaws.com",
+        "lambda.amazonaws.com",
+      ]
+    }
+  }
 }
