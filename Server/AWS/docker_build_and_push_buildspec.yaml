@@ -2,9 +2,8 @@ version: 0.2
 
 env:
   shell: bash
-
-exported-variables:
-  - IMAGE_URI
+  exported-variables:
+    - IMAGE_URI
 
 phases:
   pre_build:
@@ -23,7 +22,7 @@ phases:
           --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
           --image-ids imageTag=$TAG \
           --query 'imageDetails[0].imageDigest' --output text)
-      - IMAGE_URI=$REPOSITORY_URL@$DIGEST
+      - export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
       - echo "IMAGE_URI=$IMAGE_URI"
 
 cache:
