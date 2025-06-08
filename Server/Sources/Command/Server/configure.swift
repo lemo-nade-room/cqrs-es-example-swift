@@ -8,4 +8,8 @@ func configure(_ app: Application) async throws {
     app.get("Stage", "command", "healthcheck") { _ in
         "Stage Command Running"
     }
+    
+    app.get("**") { req in
+        "\(req.method): \(req.url), \(req.url.path)"
+    }
 }
