@@ -1,14 +1,18 @@
+import OpenAPIRuntime
+import OpenAPIVapor
 import Vapor
 
 func configure(_ app: Application) async throws {
-    app.get("command", "healthcheck") { _ in
-        "Command Running!"
-    }
+    let transport = VaporTransport(routesBuilder: app)
+    let service = Service()
+    let serverURL: URL =
+        switch Environment.get("SERVER") {
+        case "Staging": try Servers.Server2.url()
+        default: try Servers.Server1.url()
+        }
 
-    app.get("Stage", "command", "healthcheck") { _ in
-        "Stage Command Running"
-    }
-    
+    try service.registerHandlers(on: transport, serverURL: serverURL)
+
     app.get("**") { req in
         "\(req.method): \(req.url), \(req.url.path)"
     }

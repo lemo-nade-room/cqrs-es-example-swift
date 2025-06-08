@@ -1,0 +1,23 @@
+openapi: 3.0.3
+
+info:
+  title: CQRS ES Example Swift Command Server
+  version: 1.0.0
+
+servers:
+  - url: http://127.0.0.1:8080/command
+    description: Local
+  - url: https://9bbrxzg694.execute-api.ap-northeast-1.amazonaws.com/Stage/command
+    description: Staging
+
+paths:
+  /v1/healthcheck:
+    get:
+      responses:
+        200:
+          description: Server Running
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Command Server Working!

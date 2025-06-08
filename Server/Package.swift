@@ -11,6 +11,10 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.0.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
+        
+        .package(url: "https://github.com/apple/swift-openapi-generator.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime.git", from: "1.0.0"),
+        .package(url: "https://github.com/swift-server/swift-openapi-vapor.git", from: "1.0.0"),
     ],
     targets: [
         // MARK: Command
@@ -20,9 +24,14 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIVapor", package: "swift-openapi-vapor"),
             ],
             path: "Sources/Command/Server",
             swiftSettings: swiftSettings,
+            plugins: [
+                .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator"),
+            ],
         ),
         .testTarget(
             name: "CommandServerTests",
