@@ -80,7 +80,6 @@ ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=n
 
 # Lambda Web Adapter Settings
 ENV AWS_LWA_PORT=3001
-ENV AWS_LWA_READINESS_CHECK_PATH=/command/healthcheck
 
 # Let Docker bind to port 3001
 EXPOSE 3001

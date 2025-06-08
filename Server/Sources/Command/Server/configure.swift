@@ -22,4 +22,9 @@ func configure(_ app: Application) async throws {
     if app.environment == .development {
         app.http.server.configuration.port = 3001
     }
+
+    // ================================
+    // Lambda Web Adapter
+    // ================================
+    app.get { _ in "It works!" }
 }
