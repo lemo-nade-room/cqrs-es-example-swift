@@ -44,6 +44,27 @@ resource "aws_ecr_repository_policy" "query_server_function" {
   policy     = data.aws_iam_policy_document.lambda_pull.json
 }
 
+data aws_ecr_lifecycle_policy_document "cleanup_untagged" {
+  rule {
+    priority    = 1
+    description = "1日経過後のタグなしイメージは自動削除される"
+    selection {
+      tag_status   = "untagged"
+      count_type   = "sinceImagePushed"
+      count_unit   = "days"
+      count_number = 1
+    }
+  }
+}
+resource "aws_ecr_lifecycle_policy" "command_server_function" {
+  repository = aws_ecr_repository.command_server_function_repository.name
+  policy     = data.aws_ecr_lifecycle_policy_document.cleanup_untagged.json
+}
+resource "aws_ecr_lifecycle_policy" "query_server_function" {
+  repository = aws_ecr_repository.query_server_function_repository.name
+  policy     = data.aws_ecr_lifecycle_policy_document.cleanup_untagged.json
+}
+
 # ================================
 # Deploy Pipeline
 # ================================
