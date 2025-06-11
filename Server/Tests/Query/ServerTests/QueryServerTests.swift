@@ -17,13 +17,12 @@ import VaporTesting
         try await app.asyncShutdown()
     }
 
-    @Test("Test Query World Route")
-    func queryWorld() async throws {
+    @Test func itWorks() async throws {
         try await withApp { app in
-            let res = try await app.testing().sendRequest(.GET, "query")
+            let res = try await app.testing().sendRequest(.GET, "")
 
             #expect(res.status == .ok)
-            #expect(res.body.string == "Query World!")
+            #expect(res.body.string == "It works!")
         }
     }
 }
