@@ -25,10 +25,7 @@ func configure(_ app: Application) async throws {
         customURL: Environment.get("AWS_XRAY_URL").flatMap(URL.init(string:)),
         logger: app.logger
     )
-    let processor = OTelBatchSpanProcessor(
-        exporter: exporter,
-        configuration: .init(environment: environment),
-    )
+    let processor = OTelSimpleSpanProcessor(exporter: exporter)
     let tracer = OTelTracer(
         idGenerator: OTelRandomIDGenerator(),
         sampler: OTelConstantSampler(isOn: true),
@@ -57,6 +54,7 @@ func configure(_ app: Application) async throws {
     // ================================
     // OpenAPI Vapor Transport
     // ================================
+    app.middleware.use(VaporRequestMiddleware())
     let transport = VaporTransport(routesBuilder: app)
     let service = Service(logger: app.logger)
     let serverURL: URL =

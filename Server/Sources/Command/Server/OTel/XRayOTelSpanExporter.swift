@@ -143,6 +143,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     func export(_ batch: some Collection<OTelFinishedSpan> & Sendable) async throws {
+        print("💛 export 開始です")
         guard !shutdowned else {
             logger.error("Attempted to export batch while already being shut down.")
             throw OTelSpanExporterAlreadyShutDownError()
@@ -164,21 +165,21 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     private func exportChunk(_ chunk: [OTelFinishedSpan]) async throws {
-        logger.notice("💚  exportChunk開始します。chunk: \(chunk)")
+        logger.notice("💛  exportChunk開始します。chunk: \(chunk)")
         let traces = try buildTracesData(from: chunk)
-        logger.notice("💚  tracesに変換されました。traces: \(traces)")
+        logger.notice("💛  tracesに変換されました。traces: \(traces)")
         let payload = try serializer.serialize(traces)
-        logger.notice("💚  ペイロードにserializeされました。")
+        logger.notice("💛  ペイロードにserializeされました。")
 
         logger.debug("Serialized payload size: \(payload.count) bytes")
 
         let request = try await createSignedRequest(payload: payload)
-        logger.notice("💚  リクエストにSig v4署名されました")
+        logger.notice("💛  リクエストにSig v4署名されました")
         let response = try await sendRequest(request)
 
-        logger.notice("💚  レスポンスが帰りました \(response.statusCode)")
+        logger.notice("💛  レスポンスが帰りました \(response.statusCode)")
         try validateResponse(response, spanCount: chunk.count)
-        logger.notice("💚  レスポンスが正常でした")
+        logger.notice("💛  レスポンスが正常でした")
     }
 
     // Separated methods for better testability

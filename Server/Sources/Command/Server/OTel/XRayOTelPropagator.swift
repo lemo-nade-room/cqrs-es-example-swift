@@ -110,6 +110,7 @@ struct XRayOTelPropagator: OTelPropagator {
         let sampled = "Sampled=\(spanContext.traceFlags.contains(.sampled) ? 1 : 0)"
 
         injector.inject("\(root);\(parent);\(sampled)", forKey: Self.xRayTraceIDKey, into: &carrier)
+        logger.notice("💚 注入しました。: \(root);\(parent);\(sampled)")
     }
 
 }

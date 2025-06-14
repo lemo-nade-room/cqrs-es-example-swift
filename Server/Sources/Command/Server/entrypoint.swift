@@ -7,7 +7,13 @@ import Vapor
 enum Entrypoint {
     static func main() async throws {
         var env = try Environment.detect()
-        try LoggingSystem.bootstrap(from: &env)
+//        try LoggingSystem.bootstrap(from: &env)
+        
+        LoggingSystem.bootstrap { label in
+            var handler = StreamLogHandler.standardError(label: label, metadataProvider: .otel)
+            handler.logLevel = .trace
+            return handler
+        }
 
         let app = try await Application.make(env)
 
