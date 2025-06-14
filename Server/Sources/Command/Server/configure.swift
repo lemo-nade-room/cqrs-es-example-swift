@@ -58,7 +58,7 @@ func configure(_ app: Application) async throws {
     // OpenAPI Vapor Transport
     // ================================
     let transport = VaporTransport(routesBuilder: app)
-    let service = Service()
+    let service = Service(logger: app.logger)
     let serverURL: URL =
         switch Environment.get("SERVER") {
         case "Staging": try Servers.Server2.url()

@@ -37,10 +37,10 @@ struct XRayOTelPropagator: OTelPropagator {
         guard
             let xRayTraceID = extractor.extract(key: Self.xRayTraceIDKey, from: carrier)
         else {
-            logger.info("❤️ \(Self.xRayTraceIDKey)が見つかりませんでした。carrier: \(carrier)")
+            logger.notice("❤️ \(Self.xRayTraceIDKey)が見つかりませんでした。carrier: \(carrier)")
             return nil
         }
-        logger.info("💚 \(Self.xRayTraceIDKey)が見つかりました。xRayTraceID: \(xRayTraceID)")
+        logger.notice("💚 \(Self.xRayTraceIDKey)が見つかりました。xRayTraceID: \(xRayTraceID)")
 
         var traceID: TraceID? = nil
         var spanID: SpanID? = nil
@@ -53,23 +53,23 @@ struct XRayOTelPropagator: OTelPropagator {
         for field in xRayTraceID.split(separator: ";") {
             if let (_, clock, random) = try rootFieldRegex.wholeMatch(in: field)?.output {
                 traceID = makeTraceID(clock: clock, random: random)
-                logger.info("💚 traceID: \(traceID!)")
+                logger.notice("💚 traceID: \(traceID!)")
                 continue
             }
             if let (_, hex) = try parentFieldRegex.wholeMatch(in: field)?.output {
                 spanID = makeSpanID(hex: hex)
-                logger.info("💚 spanID: \(spanID!)")
+                logger.notice("💚 spanID: \(spanID!)")
                 continue
             }
             if let (_, n) = try sampledFieldRegex.wholeMatch(in: field)?.output {
                 flags = n == "1" ? .sampled : []
-                logger.info("💚 flags: \(flags!)")
+                logger.notice("💚 flags: \(flags!)")
                 continue
             }
         }
 
         guard let traceID, let spanID, let flags else {
-            logger.info(
+            logger.notice(
                 "❤️ traceID, spanID, flagsのどれかが見つかりませんでした。traceID is nil: \(traceID == nil), spanID is nil: \(spanID == nil), flags is nil: \(flags == nil)"
             )
             return nil
@@ -83,7 +83,7 @@ struct XRayOTelPropagator: OTelPropagator {
             state: .init()
         )
         
-        logger.info("💚 traceContextを作成できました: \(traceContext)")
+        logger.notice("💚 traceContextを作成できました: \(traceContext)")
 
         // Return the remote span context
         return OTelSpanContext.remote(traceContext: traceContext)
