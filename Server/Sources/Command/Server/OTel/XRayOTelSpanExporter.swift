@@ -443,7 +443,7 @@ private func convertTraceState(_ traceState: TraceState) -> String {
 }
 
 // Helper function to convert SpanKind
-private func convertSpanKind(_ kind: Tracing.SpanKind) -> Opentelemetry_Proto_Trace_V1_Span.SpanKind {
+func convertSpanKind(_ kind: Tracing.SpanKind) -> Opentelemetry_Proto_Trace_V1_Span.SpanKind {
     switch kind {
     case .internal:
         return .internal
@@ -459,7 +459,7 @@ private func convertSpanKind(_ kind: Tracing.SpanKind) -> Opentelemetry_Proto_Tr
 }
 
 // Helper function to convert SpanStatus
-private func convertStatus(_ status: SpanStatus) -> Opentelemetry_Proto_Trace_V1_Status {
+func convertStatus(_ status: SpanStatus) -> Opentelemetry_Proto_Trace_V1_Status {
     var protoStatus = Opentelemetry_Proto_Trace_V1_Status()
 
     switch status.code {

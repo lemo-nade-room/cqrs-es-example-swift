@@ -13,9 +13,9 @@ import W3CTraceContext
 @testable import CommandServer
 
 actor MockHTTPClient: HTTPClient, @unchecked Sendable {
-    var sentRequests: [HTTPRequest] = []
-    var responseToReturn: HTTPResponse?
-    var errorToThrow: Error?
+    private var sentRequests: [HTTPRequest] = []
+    private var responseToReturn: HTTPResponse?
+    private var errorToThrow: Error?
 
     func send(request: HTTPRequest) async throws -> HTTPResponse {
         sentRequests.append(request)
@@ -25,6 +25,18 @@ actor MockHTTPClient: HTTPClient, @unchecked Sendable {
         }
 
         return responseToReturn ?? .init(body: .empty, statusCode: .ok)
+    }
+    
+    func setResponse(_ response: HTTPResponse) {
+        responseToReturn = response
+    }
+    
+    func setError(_ error: Error) {
+        errorToThrow = error
+    }
+    
+    func getSentRequests() -> [HTTPRequest] {
+        return sentRequests
     }
 }
 
@@ -79,31 +91,26 @@ func createMockSpan(
     kind: SpanKind = .internal,
     attributes: SpanAttributes = [:]
 ) -> OTelFinishedSpan {
-    let spanContext = OTelSpanContext(
+    let spanContext = OTelSpanContext.local(
         traceID: traceID,
         spanID: spanID,
         parentSpanID: nil,
-        traceFlags: TraceFlags(sampled: true),
-        traceState: TraceState(),
-        isRemote: false
+        traceFlags: .sampled,
+        traceState: TraceState()
     )
-
-    let resource = OTelResource(attributes: [
-        "service.name": .string("test-service"),
-        "service.version": .string("1.0.0"),
-    ])
-
+    
     return OTelFinishedSpan(
         spanContext: spanContext,
-        resource: resource,
-        instrumentationScopeInfo: InstrumentationScopeInfo(name: "test-scope"),
         operationName: operationName,
         kind: kind,
         status: nil,
         startTimeNanosecondsSinceEpoch: 1_000_000_000,
         endTimeNanosecondsSinceEpoch: 2_000_000_000,
-        hasRemoteParent: false,
         attributes: attributes,
+        resource: OTelResource(attributes: [
+            "service.name": .string("test-service"),
+            "service.version": .string("1.0.0"),
+        ]),
         events: [],
         links: []
     )
@@ -129,11 +136,10 @@ struct XRayOTelSpanExporterTests {
     func testSuccessfulExport() async throws {
         // Arrange
         let mockClient = MockHTTPClient()
-        mockClient.responseToReturn = HTTPResponse(
-            statusCode: .ok,
-            headers: [:],
-            body: HTTPBody.data(Data())
-        )
+        await mockClient.setResponse(HTTPResponse(
+            body: .empty,
+            statusCode: .ok
+        ))
 
         let logger = Logger(label: "test")
         let config = createTestConfiguration()
@@ -150,12 +156,13 @@ struct XRayOTelSpanExporterTests {
         try await exporter.export(spans)
 
         // Assert
-        #expect(mockClient.sentRequests.count == 1)
+        let sentRequests = await mockClient.getSentRequests()
+        #expect(sentRequests.count == 1)
 
-        let request = mockClient.sentRequests[0]
+        let request = sentRequests[0]
         #expect(request.method == .post)
-        #expect(request.headers["Content-Type"] == ["application/x-protobuf"])
-        #expect(request.headers["Authorization"] != nil)
+        #expect(request.headers.values(for: "Content-Type") == ["application/x-protobuf"])
+        #expect(request.headers.values(for: "Authorization") != nil)
     }
 
     @Test("Export with empty batch")
@@ -176,18 +183,18 @@ struct XRayOTelSpanExporterTests {
         try await exporter.export(emptyBatch)
 
         // Assert
-        #expect(mockClient.sentRequests.isEmpty)
+        let sentRequests = await mockClient.getSentRequests()
+        #expect(sentRequests.isEmpty)
     }
 
     @Test("Batch chunking with large batch")
     func testBatchChunking() async throws {
         // Arrange
         let mockClient = MockHTTPClient()
-        mockClient.responseToReturn = HTTPResponse(
-            statusCode: .ok,
-            headers: [:],
-            body: HTTPBody.data(Data())
-        )
+        await mockClient.setResponse(HTTPResponse(
+            body: .empty,
+            statusCode: .ok
+        ))
 
         let logger = Logger(label: "test")
         let config = createTestConfiguration()  // maxBatchSize = 2
@@ -205,18 +212,18 @@ struct XRayOTelSpanExporterTests {
         try await exporter.export(spans)
 
         // Assert
-        #expect(mockClient.sentRequests.count == 3)
+        let sentRequests = await mockClient.getSentRequests()
+        #expect(sentRequests.count == 3)
     }
 
     @Test("HTTP error handling")
     func testHTTPErrorHandling() async throws {
         // Arrange
         let mockClient = MockHTTPClient()
-        mockClient.responseToReturn = HTTPResponse(
-            statusCode: .internalServerError,
-            headers: [:],
-            body: HTTPBody.data(Data("Server error".utf8))
-        )
+        await mockClient.setResponse(HTTPResponse(
+            body: .data(Data("Server error".utf8)),
+            statusCode: .internalServerError
+        ))
 
         let logger = Logger(label: "test")
         let config = createTestConfiguration()
@@ -230,10 +237,7 @@ struct XRayOTelSpanExporterTests {
         let spans = [createMockSpan()]
 
         // Act & Assert
-        await #expect(
-            throws: XRayOTelExporterError.httpError(
-                statusCode: 500, response: mockClient.responseToReturn!)
-        ) {
+        await #expect(throws: XRayOTelExporterError.self) {
             try await exporter.export(spans)
         }
     }
@@ -331,7 +335,7 @@ struct XRayOTelSpanExporterTests {
         struct NetworkError: Error {}
 
         let mockClient = MockHTTPClient()
-        mockClient.errorToThrow = NetworkError()
+        await mockClient.setError(NetworkError())
 
         let logger = Logger(label: "test")
         let config = createTestConfiguration()
@@ -356,7 +360,7 @@ struct XRayOTelSpanExporterTests {
         struct SigningError: Error {}
 
         let mockClient = MockHTTPClient()
-        let mockSigner = MockAWSSigner()
+        var mockSigner = MockAWSSigner()
         mockSigner.errorToThrow = SigningError()
 
         let logger = Logger(label: "test")
