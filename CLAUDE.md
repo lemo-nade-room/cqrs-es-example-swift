@@ -56,6 +56,13 @@ docker compose build
 docker compose up app
 docker compose up db
 docker compose run migrate
+
+# Build individual server Docker images locally
+# Command Server
+docker build --file ./Sources/Command/Dockerfile --tag command-server:latest .
+
+# Query Server  
+docker build --file ./Sources/Query/Dockerfile --tag query-server:latest .
 ```
 
 ### AWS Deployment
@@ -84,3 +91,10 @@ Tests are organized by server type:
 - `Tests/Query/ServerTests/` - Query server tests  
 - Uses Swift Testing framework with `@Test` and `@Suite` annotations
 - VaporTesting for HTTP endpoint testing
+
+## Development Prerequisites
+
+This project requires the following capabilities to work effectively:
+- **Swift Package Manager**: `swift build` and `swift test` must work properly
+- **Docker**: Individual server Docker builds must succeed for deployment verification
+- Commands `swift build`, `swift test`, and the Docker build commands above should all execute successfully
