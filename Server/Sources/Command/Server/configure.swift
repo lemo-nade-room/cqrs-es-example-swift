@@ -42,7 +42,7 @@ func configure(_ app: Application) async throws {
     ])
     let resource = await resourceDetection.resource(environment: environment, logLevel: .trace)
     let exporter = XRayOTelSpanExporter(
-        awsAcessKey: Environment.get("AWS_ACCESS_KEY_ID") ?? "",
+        awsAccessKey: Environment.get("AWS_ACCESS_KEY_ID") ?? "",
         awsSecretAccessKey: Environment.get("AWS_SECRET_ACCESS_KEY") ?? "",
         awsSessionToken: Environment.get("AWS_SESSION_TOKEN"),
         region: Environment.get("AWS_REGION") ?? "ap-northeast-1",

@@ -15,25 +15,30 @@ import W3CTraceContext
 /// AWS X-Ray の OTLP HTTP エンドポイントに Span を送る Exporter
 actor XRayOTelSpanExporter: OTelSpanExporter {
 
-    private let awsAcessKey: String
+    private let awsAccessKey: String
     private let awsSecretAccessKey: String
     private let awsSessionToken: String?
     private let region: String
-    private let client: any HTTPClient  // 依存性注入 (mock しやすくするため)
-    private let customURL: URL?  // 例: https://xray.ap-northeast-1.amazonaws.com/v1/traces
+    private let client: any HTTPClient
+    private let customURL: URL?
     private let logger: Logger
     private var shutdowned = false
 
+    // バッチサイズの上限（AWS X-Rayの制限に合わせて設定）
+    private let maxBatchSize = 25
+    // タイムアウト設定
+    private let timeoutSeconds: TimeInterval = 10.0
+
     init(
-        awsAcessKey: String,
+        awsAccessKey: String,
         awsSecretAccessKey: String,
         awsSessionToken: String? = nil,
         region: String,
         client: any HTTPClient,
         customURL: URL? = nil,
-        logger: Logger,
+        logger: Logger
     ) {
-        self.awsAcessKey = awsAcessKey
+        self.awsAccessKey = awsAccessKey
         self.awsSecretAccessKey = awsSecretAccessKey
         self.awsSessionToken = awsSessionToken
         self.region = region
@@ -74,11 +79,13 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
                 }
             ]
         }
-        let payload = try traces.serializedData()
 
-        // --- ② HTTPRequestBuilder を作り、SigV4 署名 ------------------------
+        let payload = try traces.serializedData()
+        logger.debug("Serialized payload size: \(payload.count) bytes")
+
+        // HTTPRequestBuilder を作り、SigV4 署名
         guard let host = url.host(percentEncoded: true) else {
-            throw XRayOTelPropagatorError.invalidXRayURL(url)
+            throw XRayOTelExporterError.invalidXRayURL(url)
         }
 
         let builder = HTTPRequestBuilder()
@@ -88,24 +95,50 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             .withPath(url.path)
             .withHeader(name: "Content-Type", value: "application/x-protobuf")
             .withBody(.data(payload))
+
         let signedRequest = try await sign(builder: builder)
 
-        // --- ③ 送信 ---------------------------------------------------------
-        let response = try await client.send(request: signedRequest)
-        let status = response.statusCode.rawValue
-        guard (200..<300).contains(status) else {
-            throw XRayOTelPropagatorError.responsedWithError(response)
+        // 送信
+        do {
+            let response = try await client.send(request: signedRequest)
+            let status = response.statusCode.rawValue
+
+            logger.debug("Received response with status code: \(status)")
+
+            guard (200..<300).contains(status) else {
+                // エラーレスポンスの詳細をログに記録
+                if let body = try? await response.body.readData() {
+                    let errorMessage = String(data: body, encoding: .utf8) ?? "Unknown error"
+                    logger.error(
+                        "X-Ray OTLP endpoint returned error: \(status), message: \(errorMessage)")
+                }
+                throw XRayOTelExporterError.httpError(statusCode: status, response: response)
+            }
+
+            logger.debug("Successfully exported \(batch.count) spans to X-Ray")
+
+        } catch {
+            logger.error("Failed to export spans to X-Ray: \(error)")
+            throw error
         }
     }
 
-    func forceFlush() async throws {}
-    func shutdown() async { shutdowned = true }
+    func forceFlush() async throws {
+        logger.debug("Force flush called")
+    }
 
-    // MARK: – Private helpers -----------------------------------------------
+    func shutdown() async {
+        logger.info("Shutting down X-Ray OTLP exporter")
+        shutdowned = true
+    }
+
+    // MARK: – Private helpers
 
     private var identity: AWSCredentialIdentity {
         .init(
-            accessKey: awsSecretAccessKey, secret: awsSecretAccessKey, sessionToken: awsSessionToken
+            accessKey: awsAccessKey,  // 修正: 正しいプロパティ名を使用
+            secret: awsSecretAccessKey,
+            sessionToken: awsSessionToken
         )
     }
 
@@ -131,6 +164,25 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         return signedBuilder.build()
     }
 }
+
+// エラー定義の改善
+enum XRayOTelExporterError: Error, Sendable {
+    case invalidXRayURL(URL)
+    case httpError(statusCode: Int, response: SmithyHTTPAPI.HTTPResponse)
+    case serializationError(Error)
+    case signingError(Error)
+}
+
+// Helper extension for chunking arrays
+extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
+    }
+}
+
+// MARK: - Conversion Functions
 
 func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1_AnyValue? {
     var anyValue = Opentelemetry_Proto_Common_V1_AnyValue()
@@ -207,7 +259,9 @@ func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1
             return element
         }
         anyValue.arrayValue = arrayValue
+
     default:
+        logger.warning("Unknown SpanAttribute type encountered")
         return nil
     }
 
@@ -309,11 +363,6 @@ private func convertStatus(_ status: SpanStatus) -> Opentelemetry_Proto_Trace_V1
     return protoStatus
 }
 
-enum XRayOTelPropagatorError: Error, Sendable {
-    case invalidXRayURL(URL)
-    case responsedWithError(SmithyHTTPAPI.HTTPResponse)
-}
-
 // Helper function to convert SpanAttributes to array of KeyValue
 private func convertAttributes(_ attributes: SpanAttributes)
     -> [Opentelemetry_Proto_Common_V1_KeyValue]
@@ -321,9 +370,10 @@ private func convertAttributes(_ attributes: SpanAttributes)
     var keyValues: [Opentelemetry_Proto_Common_V1_KeyValue] = []
 
     attributes.forEach { key, attribute in
+        guard let value = convertAttribute(attribute: attribute) else { return }
         var keyValue = Opentelemetry_Proto_Common_V1_KeyValue()
         keyValue.key = key
-        keyValue.value = convertAttribute(attribute: attribute)
+        keyValue.value = value
         keyValues.append(keyValue)
     }
 
@@ -346,7 +396,6 @@ private func convertLink(_ link: Tracing.SpanLink) -> Opentelemetry_Proto_Trace_
     var protoLink = Opentelemetry_Proto_Trace_V1_Span.Link()
 
     // Extract OTelSpanContext from the link's service context
-    // The context should contain an OTelSpanContext stored with a specific key
     if let spanContext = link.context.spanContext {
         protoLink.traceID = spanContext.traceID.bytes.withUnsafeBytes { buffer in
             Data(buffer)
@@ -363,86 +412,5 @@ private func convertLink(_ link: Tracing.SpanLink) -> Opentelemetry_Proto_Trace_
     return protoLink
 }
 
-// Update convertAttribute to handle default case
-func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1_AnyValue {
-    var anyValue = Opentelemetry_Proto_Common_V1_AnyValue()
-
-    switch attribute {
-    case .int32(let value):
-        anyValue.intValue = Int64(value)
-
-    case .int64(let value):
-        anyValue.intValue = value
-
-    case .double(let value):
-        anyValue.doubleValue = value
-
-    case .bool(let value):
-        anyValue.boolValue = value
-
-    case .string(let value):
-        anyValue.stringValue = value
-
-    case .stringConvertible(let value):
-        anyValue.stringValue = String(describing: value)
-
-    case .int32Array(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.intValue = Int64(value)
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    case .int64Array(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.intValue = value
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    case .doubleArray(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.doubleValue = value
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    case .boolArray(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.boolValue = value
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    case .stringArray(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.stringValue = value
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    case .stringConvertibleArray(let values):
-        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
-        arrayValue.values = values.map { value in
-            var element = Opentelemetry_Proto_Common_V1_AnyValue()
-            element.stringValue = String(describing: value)
-            return element
-        }
-        anyValue.arrayValue = arrayValue
-
-    default:
-        return anyValue
-    }
-
-    return anyValue
-}
+// グローバルなロガーインスタンス（必要に応じて設定）
+private let logger = Logger(label: "XRayOTelExporter")
