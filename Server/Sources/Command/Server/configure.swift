@@ -42,8 +42,13 @@ func configure(_ app: Application) async throws {
     ])
     let resource = await resourceDetection.resource(environment: environment, logLevel: .trace)
     let exporter = XRayOTelSpanExporter(
+        awsAcessKey: Environment.get("AWS_ACCESS_KEY_ID") ?? "",
+        awsSecretAccessKey: Environment.get("AWS_SECRET_ACCESS_KEY") ?? "",
+        awsSessionToken: Environment.get("AWS_SESSION_TOKEN"),
+        region: Environment.get("AWS_REGION") ?? "ap-northeast-1",
         client: ClientConfigurationDefaults.makeClient(),
-        url: .init(string: "https://xray.ap-northeast-1.amazonaws.com/v1/traces")!,
+        customURL: Environment.get("AWS_XRAY_URL").flatMap(URL.init(string:)),
+        logger: app.logger
     )
     let processor = OTelBatchSpanProcessor(
         exporter: exporter,

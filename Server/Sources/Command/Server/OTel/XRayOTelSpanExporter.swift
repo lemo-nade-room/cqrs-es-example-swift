@@ -1,253 +1,448 @@
-import Foundation
-import OTel
 import AWSSDKHTTPAuth
 import ClientRuntime
-import SmithyHTTPAPI
+import Foundation
+import Logging
+import OTel
+import Smithy
+@preconcurrency import SmithyHTTPAPI
+import SmithyHTTPAuthAPI
+import SmithyIdentity
+import SmithyIdentityAPI
 import SwiftProtobuf
+import Tracing
+import W3CTraceContext
 
+/// AWS X-Ray の OTLP HTTP エンドポイントに Span を送る Exporter
 actor XRayOTelSpanExporter: OTelSpanExporter {
-    /// HTTP client used to send requests (e.g., AsyncHTTPClient via AWS SDK).
-    let client: any HTTPClient
-    /// Endpoint URL for AWS X-Ray OTLP traces (e.g. "https://xray.ap-northeast-1.amazonaws.com/v1/traces").
-    let url: URL
-    /// Whether the exporter has been shut down.
+
+    private let awsAcessKey: String
+    private let awsSecretAccessKey: String
+    private let awsSessionToken: String?
+    private let region: String
+    private let client: any HTTPClient  // 依存性注入 (mock しやすくするため)
+    private let customURL: URL?  // 例: https://xray.ap-northeast-1.amazonaws.com/v1/traces
+    private let logger: Logger
     private var shutdowned = false
 
-    init(client: any HTTPClient, url: URL) {
+    init(
+        awsAcessKey: String,
+        awsSecretAccessKey: String,
+        awsSessionToken: String? = nil,
+        region: String,
+        client: any HTTPClient,
+        customURL: URL? = nil,
+        logger: Logger,
+    ) {
+        self.awsAcessKey = awsAcessKey
+        self.awsSecretAccessKey = awsSecretAccessKey
+        self.awsSessionToken = awsSessionToken
+        self.region = region
         self.client = client
-        self.url = url
+        self.customURL = customURL
+        self.logger = logger
     }
 
-    /// Exports a batch of finished spans to the X-Ray OTLP endpoint.
-    func export(_ batch: some Collection<OTel.OTelFinishedSpan> & Sendable) async throws {
-        // If exporter is shut down, throw error (cannot use after shutdown).
-        if shutdowned {
+    func export(_ batch: some Collection<OTelFinishedSpan> & Sendable) async throws {
+        guard !shutdowned else {
+            logger.error("Attempted to export batch while already being shut down.")
             throw OTelSpanExporterAlreadyShutDownError()
         }
+        guard let firstSpanResource = batch.first?.resource else { return }
 
-        // Group spans by resource and instrumentation scope to build OTLP request.
-        var tracesData = Opentelemetry_Proto_Trace_V1_TracesData()
-        for span in batch {
-            // Determine resource and scope for this span
-            let resource = span.resource  // OTelResource associated with span (from tracer)
-            let scopeInfo = span.instrumentationScope  // instrumentation scope (name & version)
-            // Find or create a ResourceSpans entry for this resource
-            var resourceSpans: Opentelemetry_Proto_Trace_V1_ResourceSpans
-            if let idx = tracesData.resourceSpans.firstIndex(where: { $0.resource.attributes == resource.attributes }) {
-                resourceSpans = tracesData.resourceSpans[idx]
-            } else {
-                resourceSpans = Opentelemetry_Proto_Trace_V1_ResourceSpans()
-                // Convert resource to proto form
-                resourceSpans.resource = convertResource(resource)
-                tracesData.resourceSpans.append(resourceSpans)
-            }
-            // Find or create ScopeSpans for this instrumentation scope within the resource
-            var scopeSpans: Opentelemetry_Proto_Trace_V1_ScopeSpans
-            if let idx = resourceSpans.scopeSpans.firstIndex(where: { $0.scope.name == scopeInfo.name && $0.scope.version == scopeInfo.version }) {
-                scopeSpans = resourceSpans.scopeSpans[idx]
-            } else {
-                scopeSpans = Opentelemetry_Proto_Trace_V1_ScopeSpans()
-                scopeSpans.scope = convertInstrumentationScope(scopeInfo)
-                resourceSpans.scopeSpans.append(scopeSpans)
-            }
-            // Convert span to proto and add to scopeSpans
-            scopeSpans.spans.append(convertSpan(span))
+        let traces = Opentelemetry_Proto_Trace_V1_TracesData.with { request in
+            request.resourceSpans = [
+                .with { resourceSpans in
+                    resourceSpans.resource = .with { resource in
+                        firstSpanResource.attributes.forEach { key, attribute in
+                            guard let value = convertAttribute(attribute: attribute) else { return }
+                            var protoAttribute = Opentelemetry_Proto_Common_V1_KeyValue()
+                            protoAttribute.key = key
+                            protoAttribute.value = value
+                            resource.attributes.append(protoAttribute)
+                        }
+                    }
+
+                    resourceSpans.scopeSpans = [
+                        .with { scopeSpans in
+                            scopeSpans.scope = .with { scope in
+                                scope.name = "swift-otel"
+                                scope.version = OTelLibrary.version
+                            }
+                            scopeSpans.spans = batch.map(convertOTelFinishedSpanToProto(span:))
+                        }
+                    ]
+                }
+            ]
+        }
+        let payload = try traces.serializedData()
+
+        // --- ② HTTPRequestBuilder を作り、SigV4 署名 ------------------------
+        guard let host = url.host(percentEncoded: true) else {
+            throw XRayOTelPropagatorError.invalidXRayURL(url)
         }
 
-        // Serialize the OTLP trace data to protobuf binary
-        let payloadData = try tracesData.serializedData()
+        let builder = HTTPRequestBuilder()
+            .withMethod(.post)
+            .withProtocol(url.scheme == "http" ? .http : .https)
+            .withHost(host)
+            .withPath(url.path)
+            .withHeader(name: "Content-Type", value: "application/x-protobuf")
+            .withBody(.data(payload))
+        let signedRequest = try await sign(builder: builder)
 
-        // Prepare HTTP request (POST with protobuf payload)
-        var requestBuilder = HTTPRequestBuilder()
-        requestBuilder.withMethod(.post)
-                      .withURL(url)
-                      .withHeader(name: "Content-Type", value: "application/x-protobuf")  // OTLP binary format:contentReference[oaicite:2]{index=2}
-                      .withBody(Data(payloadData))
+        // --- ③ 送信 ---------------------------------------------------------
+        let response = try await client.send(request: signedRequest)
+        let status = response.statusCode.rawValue
+        guard (200..<300).contains(status) else {
+            throw XRayOTelPropagatorError.responsedWithError(response)
+        }
+    }
 
-        // Sign the request using AWS SigV4 (adds Authorization, x-amz-date, etc.)
-        let signer = AWSSigV4Signer()  // uses default credentials provider (e.g., env or IAM)
-        let region = extractRegion(from: url)
-        let signedRequest = try signer.sign(
-            request: requestBuilder.build(),
-            signingName: "xray",
-            signingRegion: region
+    func forceFlush() async throws {}
+    func shutdown() async { shutdowned = true }
+
+    // MARK: – Private helpers -----------------------------------------------
+
+    private var identity: AWSCredentialIdentity {
+        .init(
+            accessKey: awsSecretAccessKey, secret: awsSecretAccessKey, sessionToken: awsSessionToken
         )
-        // **Remark:** Standard OTLP doesn’t require auth headers, but AWS OTLP endpoints demand SigV4 signing:contentReference[oaicite:3]{index=3}.
+    }
 
-        // Send the signed HTTP request using the HTTP client
-        let response = try await client.execute(request: signedRequest)
-        // Check HTTP status code for success (200 OK or 204 No Content are acceptable)
-        if let statusCode = response.statusCode?.rawValue {
-            if statusCode < 200 || statusCode >= 300 {
-                throw OTelSpanExporterError("X-Ray exporter received HTTP \(statusCode)")
-            }
+    private var url: URL {
+        customURL ?? URL(string: "https://xray.\(region).amazonaws.com/v1/traces")!
+    }
+
+    /// SigV4 署名を付与して最終的な HTTPRequest を返す
+    private func sign(builder: SmithyHTTPAPI.HTTPRequestBuilder) async throws -> HTTPRequest {
+        var props = Smithy.Attributes()
+        props.set(key: SigningPropertyKeys.signingName, value: "xray")
+        props.set(key: SigningPropertyKeys.signingRegion, value: region)
+        props.set(key: SigningPropertyKeys.signingAlgorithm, value: SigningAlgorithm.sigv4)
+        props.set(key: SigningPropertyKeys.bidirectionalStreaming, value: false)
+        props.set(key: SigningPropertyKeys.unsignedBody, value: false)
+
+        let signer = AWSSigV4Signer()
+        let signedBuilder = try await signer.signRequest(
+            requestBuilder: builder,
+            identity: identity,
+            signingProperties: props
+        )
+        return signedBuilder.build()
+    }
+}
+
+func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1_AnyValue? {
+    var anyValue = Opentelemetry_Proto_Common_V1_AnyValue()
+
+    switch attribute {
+    case .int32(let value):
+        anyValue.intValue = Int64(value)
+
+    case .int64(let value):
+        anyValue.intValue = value
+
+    case .double(let value):
+        anyValue.doubleValue = value
+
+    case .bool(let value):
+        anyValue.boolValue = value
+
+    case .string(let value):
+        anyValue.stringValue = value
+
+    case .stringConvertible(let value):
+        anyValue.stringValue = String(describing: value)
+
+    case .int32Array(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.intValue = Int64(value)
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .int64Array(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.intValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .doubleArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.doubleValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .boolArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.boolValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .stringArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.stringValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .stringConvertibleArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.stringValue = String(describing: value)
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+    default:
+        return nil
+    }
+
+    return anyValue
+}
+
+func convertOTelFinishedSpanToProto(span: OTelFinishedSpan) -> Opentelemetry_Proto_Trace_V1_Span {
+    var protoSpan = Opentelemetry_Proto_Trace_V1_Span()
+
+    // Trace ID (16 bytes)
+    protoSpan.traceID = span.spanContext.traceID.bytes.withUnsafeBytes { bytes in
+        Data(bytes)
+    }
+
+    // Span ID (8 bytes)
+    protoSpan.spanID = span.spanContext.spanID.bytes.withUnsafeBytes { bytes in
+        Data(bytes)
+    }
+
+    // Parent Span ID (8 bytes, optional)
+    if let parentSpanID = span.spanContext.parentSpanID {
+        protoSpan.parentSpanID = parentSpanID.bytes.withUnsafeBytes { bytes in
+            Data(bytes)
         }
     }
 
-    /// Flushes the exporter (ensures any pending spans are sent out).
-    func forceFlush() async throws {
-        // For this exporter, spans are sent immediately, so no buffering to flush.
+    // Trace State
+    protoSpan.traceState = convertTraceState(span.spanContext.traceState)
+
+    // Flags - combine trace flags with span flags
+    protoSpan.flags = UInt32(span.spanContext.traceFlags.rawValue)
+
+    // Operation name
+    protoSpan.name = span.operationName
+
+    // Span Kind
+    protoSpan.kind = convertSpanKind(span.kind)
+
+    // Timestamps
+    protoSpan.startTimeUnixNano = span.startTimeNanosecondsSinceEpoch
+    protoSpan.endTimeUnixNano = span.endTimeNanosecondsSinceEpoch
+
+    // Attributes
+    protoSpan.attributes = convertAttributes(span.attributes)
+
+    // Status
+    if let status = span.status {
+        protoSpan.status = convertStatus(status)
     }
 
-    /// Shuts down the exporter, releasing any resources.
-    func shutdown() async {
-        shutdowned = true
+    // Events
+    protoSpan.events = span.events.map(convertEvent)
+
+    // Links
+    protoSpan.links = span.links.map(convertLink)
+
+    return protoSpan
+}
+
+// Helper function to convert TraceState to string
+private func convertTraceState(_ traceState: TraceState) -> String {
+    traceState
+        .map { "\($0.vendor.rawValue)=\($0.value)" }
+        .joined(separator: ",")
+}
+
+// Helper function to convert SpanKind
+private func convertSpanKind(_ kind: Tracing.SpanKind) -> Opentelemetry_Proto_Trace_V1_Span.SpanKind
+{
+    switch kind {
+    case .internal:
+        return .internal
+    case .server:
+        return .server
+    case .client:
+        return .client
+    case .producer:
+        return .producer
+    case .consumer:
+        return .consumer
+    }
+}
+
+// Helper function to convert SpanStatus
+private func convertStatus(_ status: SpanStatus) -> Opentelemetry_Proto_Trace_V1_Status {
+    var protoStatus = Opentelemetry_Proto_Trace_V1_Status()
+
+    switch status.code {
+    case .ok:
+        protoStatus.code = .ok
+    case .error:
+        protoStatus.code = .error
     }
 
-    // MARK: - Helper conversion functions
-
-    /// Convert OTelResource to Opentelemetry_Proto_Resource_V1_Resource
-    private func convertResource(_ resource: OTelResource) -> Opentelemetry_Proto_Resource_V1_Resource {
-        var protoRes = Opentelemetry_Proto_Resource_V1_Resource()
-        for (key, value) in resource.attributes {
-            protoRes.attributes.append(protoKeyValue(key: key, value: value))
-        }
-        return protoRes
+    if let message = status.message {
+        protoStatus.message = message
     }
 
-    /// Convert instrumentation scope info to Opentelemetry_Proto_Common_V1_InstrumentationScope
-    private func convertInstrumentationScope(_ scope: InstrumentationScope) -> Opentelemetry_Proto_Common_V1_InstrumentationScope {
-        var protoScope = Opentelemetry_Proto_Common_V1_InstrumentationScope()
-        protoScope.name = scope.name
-        protoScope.version = scope.version ?? ""
-        return protoScope
+    return protoStatus
+}
+
+enum XRayOTelPropagatorError: Error, Sendable {
+    case invalidXRayURL(URL)
+    case responsedWithError(SmithyHTTPAPI.HTTPResponse)
+}
+
+// Helper function to convert SpanAttributes to array of KeyValue
+private func convertAttributes(_ attributes: SpanAttributes)
+    -> [Opentelemetry_Proto_Common_V1_KeyValue]
+{
+    var keyValues: [Opentelemetry_Proto_Common_V1_KeyValue] = []
+
+    attributes.forEach { key, attribute in
+        var keyValue = Opentelemetry_Proto_Common_V1_KeyValue()
+        keyValue.key = key
+        keyValue.value = convertAttribute(attribute: attribute)
+        keyValues.append(keyValue)
     }
 
-    /// Convert a finished span to Opentelemetry_Proto_Trace_V1_Span
-    private func convertSpan(_ span: OTelFinishedSpan) -> Opentelemetry_Proto_Trace_V1_Span {
-        var protoSpan = Opentelemetry_Proto_Trace_V1_Span()
-        // IDs (OTelTraceID / OTelSpanID to Data)
-        protoSpan.traceID = Data(span.spanContext.traceID.bytes)
-        protoSpan.spanID = Data(span.spanContext.spanID.bytes)
-        if let parentID = span.parentSpanID {
-            protoSpan.parentSpanID = Data(parentID.bytes)
+    return keyValues
+}
+
+// Helper function to convert SpanEvent
+private func convertEvent(_ event: SpanEvent) -> Opentelemetry_Proto_Trace_V1_Span.Event {
+    var protoEvent = Opentelemetry_Proto_Trace_V1_Span.Event()
+
+    protoEvent.name = event.name
+    protoEvent.timeUnixNano = event.nanosecondsSinceEpoch
+    protoEvent.attributes = convertAttributes(event.attributes)
+
+    return protoEvent
+}
+
+// Helper function to convert SpanLink
+private func convertLink(_ link: Tracing.SpanLink) -> Opentelemetry_Proto_Trace_V1_Span.Link {
+    var protoLink = Opentelemetry_Proto_Trace_V1_Span.Link()
+
+    // Extract OTelSpanContext from the link's service context
+    // The context should contain an OTelSpanContext stored with a specific key
+    if let spanContext = link.context.spanContext {
+        protoLink.traceID = spanContext.traceID.bytes.withUnsafeBytes { buffer in
+            Data(buffer)
         }
-        // Basic properties
-        protoSpan.name = span.operationName
-        protoSpan.kind = convertSpanKind(span.kind)
-        protoSpan.startTimeUnixNano = span.startTimeNanoseconds
-        protoSpan.endTimeUnixNano = span.endTimeNanoseconds
-        // Attributes
-        for (key, val) in span.attributes {
-            protoSpan.attributes.append(protoKeyValue(key: key, value: val))
+        protoLink.spanID = spanContext.spanID.bytes.withUnsafeBytes { buffer in
+            Data(buffer)
         }
-        protoSpan.droppedAttributesCount = UInt32(span.droppedAttributesCount)
-        // Events
-        for event in span.events {
-            protoSpan.events.append(convertEvent(event))
-        }
-        protoSpan.droppedEventsCount = UInt32(span.droppedEventsCount)
-        // Links
-        for link in span.links {
-            protoSpan.links.append(convertLink(link))
-        }
-        protoSpan.droppedLinksCount = UInt32(span.droppedLinksCount)
-        // Status (code and message)
-        if let status = span.status {
-            var protoStatus = Opentelemetry_Proto_Trace_V1_Status()
-            protoStatus.code = convertStatusCode(status.code)
-            protoStatus.message = status.message ?? ""
-            protoSpan.status = protoStatus
-        }
-        return protoSpan
+        protoLink.traceState = convertTraceState(spanContext.traceState)
+        protoLink.flags = UInt32(spanContext.traceFlags.rawValue)
     }
 
-    /// Convert span event to proto Span.Event
-    private func convertEvent(_ event: OTelSpanEvent) -> Opentelemetry_Proto_Trace_V1_Span.Event {
-        var protoEvent = Opentelemetry_Proto_Trace_V1_Span.Event()
-        protoEvent.timeUnixNano = event.timestampNanoseconds
-        protoEvent.name = event.name
-        for (key, val) in event.attributes {
-            protoEvent.attributes.append(protoKeyValue(key: key, value: val))
+    protoLink.attributes = convertAttributes(link.attributes)
+
+    return protoLink
+}
+
+// Update convertAttribute to handle default case
+func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1_AnyValue {
+    var anyValue = Opentelemetry_Proto_Common_V1_AnyValue()
+
+    switch attribute {
+    case .int32(let value):
+        anyValue.intValue = Int64(value)
+
+    case .int64(let value):
+        anyValue.intValue = value
+
+    case .double(let value):
+        anyValue.doubleValue = value
+
+    case .bool(let value):
+        anyValue.boolValue = value
+
+    case .string(let value):
+        anyValue.stringValue = value
+
+    case .stringConvertible(let value):
+        anyValue.stringValue = String(describing: value)
+
+    case .int32Array(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.intValue = Int64(value)
+            return element
         }
-        protoEvent.droppedAttributesCount = UInt32(event.droppedAttributesCount)
-        return protoEvent
+        anyValue.arrayValue = arrayValue
+
+    case .int64Array(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.intValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .doubleArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.doubleValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .boolArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.boolValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .stringArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.stringValue = value
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    case .stringConvertibleArray(let values):
+        var arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue()
+        arrayValue.values = values.map { value in
+            var element = Opentelemetry_Proto_Common_V1_AnyValue()
+            element.stringValue = String(describing: value)
+            return element
+        }
+        anyValue.arrayValue = arrayValue
+
+    default:
+        return anyValue
     }
 
-    /// Convert span link to proto Span.Link
-    private func convertLink(_ link: OTelSpanLink) -> Opentelemetry_Proto_Trace_V1_Span.Link {
-        var protoLink = Opentelemetry_Proto_Trace_V1_Span.Link()
-        protoLink.traceID = Data(link.context.traceID.bytes)
-        protoLink.spanID = Data(link.context.spanID.bytes)
-        protoLink.traceState = link.context.traceState // W3C trace state string
-        for (key, val) in link.attributes {
-            protoLink.attributes.append(protoKeyValue(key: key, value: val))
-        }
-        protoLink.droppedAttributesCount = UInt32(link.droppedAttributesCount)
-        // Set trace flags & remote marker in link flags if needed
-        protoLink.flags = link.context.isRemote ? 0x100 | (link.context.traceFlags & 0xFF) : (link.context.traceFlags & 0xFF)
-        return protoLink
-    }
-
-    /// Convert a key-value attribute to proto KeyValue
-    private func protoKeyValue(key: String, value: OTelAttributeValue) -> Opentelemetry_Proto_Common_V1_KeyValue {
-        var kv = Opentelemetry_Proto_Common_V1_KeyValue()
-        kv.key = key
-        // Convert value based on type
-        switch value {
-        case .string(let str):
-            kv.value.stringValue = str
-        case .bool(let b):
-            kv.value.boolValue = b
-        case .int(let i):
-            kv.value.intValue = i
-        case .double(let d):
-            kv.value.doubleValue = d
-        case .stringArray(let arr):
-            // Convert string array to AnyValue.arrayValue
-            var arrayVal = Opentelemetry_Proto_Common_V1_ArrayValue()
-            for s in arr { arrayVal.values.append(Opentelemetry_Proto_Common_V1_AnyValue.with { $0.stringValue = s }) }
-            kv.value.arrayValue = arrayVal
-        case .intArray(let arr):
-            var arrayVal = Opentelemetry_Proto_Common_V1_ArrayValue()
-            for num in arr { arrayVal.values.append(Opentelemetry_Proto_Common_V1_AnyValue.with { $0.intValue = num }) }
-            kv.value.arrayValue = arrayVal
-        case .doubleArray(let arr):
-            var arrayVal = Opentelemetry_Proto_Common_V1_ArrayValue()
-            for num in arr { arrayVal.values.append(Opentelemetry_Proto_Common_V1_AnyValue.with { $0.doubleValue = num }) }
-            kv.value.arrayValue = arrayVal
-        case .boolArray(let arr):
-            var arrayVal = Opentelemetry_Proto_Common_V1_ArrayValue()
-            for b in arr { arrayVal.values.append(Opentelemetry_Proto_Common_V1_AnyValue.with { $0.boolValue = b }) }
-            kv.value.arrayValue = arrayVal
-        }
-        return kv
-    }
-
-    /// Map OTel span kind to proto enum
-    private func convertSpanKind(_ kind: OTelSpanKind) -> Opentelemetry_Proto_Trace_V1_Span.SpanKind {
-        switch kind {
-        case .internal: return .internal
-        case .server:   return .server
-        case .client:   return .client
-        case .producer: return .producer
-        case .consumer: return .consumer
-        }
-    }
-
-    /// Map OTel status code to proto Status.StatusCode
-    private func convertStatusCode(_ code: OTelStatusCode) -> Opentelemetry_Proto_Trace_V1_Status.StatusCode {
-        switch code {
-        case .unset: return .unset
-        case .ok:    return .ok
-        case .error: return .error
-        }
-    }
-
-    /// Extract AWS region (e.g. "ap-northeast-1") from the X-Ray endpoint URL host.
-    private func extractRegion(from url: URL) -> String {
-        // Host format: "xray.<region>.amazonaws.com"
-        let host = url.host ?? ""
-        // Example host "xray.ap-northeast-1.amazonaws.com" -> region "ap-northeast-1"
-        let parts = host.split(separator: ".")
-        // Usually, parts[0] = "xray", parts[1] = region
-        if parts.count > 1, parts[0] == "xray" {
-            return String(parts[1])
-        }
-        // Fallback: try environment AWS_REGION
-        if let envRegion = ProcessInfo.processInfo.environment["AWS_REGION"] {
-            return envRegion
-        }
-        return "us-east-1" // default if unable to determine
-    }
+    return anyValue
 }
