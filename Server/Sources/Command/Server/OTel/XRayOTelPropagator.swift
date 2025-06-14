@@ -1,4 +1,5 @@
 import Instrumentation
+import Logging
 import OTel
 import RegexBuilder
 import W3CTraceContext
@@ -8,6 +9,12 @@ import W3CTraceContext
 /// This propagator extracts and injects trace context from/to the AWS X-Ray trace header format.
 /// It implements the OTelPropagator protocol to provide compatibility with OpenTelemetry instrumentation.
 struct XRayOTelPropagator: OTelPropagator {
+
+    private var logger: Logger
+    
+    init(logger: Logger) {
+        self.logger = logger
+    }
 
     /// The HTTP header key used for AWS X-Ray trace ID.
     ///
@@ -30,8 +37,10 @@ struct XRayOTelPropagator: OTelPropagator {
         guard
             let xRayTraceID = extractor.extract(key: Self.xRayTraceIDKey, from: carrier)
         else {
+            logger.info("❤️ \(Self.xRayTraceIDKey)が見つかりませんでした。carrier: \(carrier)")
             return nil
         }
+        logger.info("💚 \(Self.xRayTraceIDKey)が見つかりました。xRayTraceID: \(xRayTraceID)")
 
         var traceID: TraceID? = nil
         var spanID: SpanID? = nil
@@ -44,19 +53,25 @@ struct XRayOTelPropagator: OTelPropagator {
         for field in xRayTraceID.split(separator: ";") {
             if let (_, clock, random) = try rootFieldRegex.wholeMatch(in: field)?.output {
                 traceID = makeTraceID(clock: clock, random: random)
+                logger.info("💚 traceID: \(traceID!)")
                 continue
             }
             if let (_, hex) = try parentFieldRegex.wholeMatch(in: field)?.output {
                 spanID = makeSpanID(hex: hex)
+                logger.info("💚 spanID: \(spanID!)")
                 continue
             }
             if let (_, n) = try sampledFieldRegex.wholeMatch(in: field)?.output {
                 flags = n == "1" ? .sampled : []
+                logger.info("💚 flags: \(flags!)")
                 continue
             }
         }
 
         guard let traceID, let spanID, let flags else {
+            logger.info(
+                "❤️ traceID, spanID, flagsのどれかが見つかりませんでした。traceID is nil: \(traceID == nil), spanID is nil: \(spanID == nil), flags is nil: \(flags == nil)"
+            )
             return nil
         }
 
@@ -67,6 +82,8 @@ struct XRayOTelPropagator: OTelPropagator {
             flags: flags,
             state: .init()
         )
+        
+        logger.info("💚 traceContextを作成できました: \(traceContext)")
 
         // Return the remote span context
         return OTelSpanContext.remote(traceContext: traceContext)

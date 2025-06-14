@@ -32,7 +32,7 @@ func configure(_ app: Application) async throws {
     let tracer = OTelTracer(
         idGenerator: OTelRandomIDGenerator(),
         sampler: OTelConstantSampler(isOn: true),
-        propagator: XRayOTelPropagator(),
+        propagator: XRayOTelPropagator(logger: app.logger),
         processor: processor,
         environment: environment,
         resource: resource

@@ -150,6 +150,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
 
         guard !batch.isEmpty else {
             logger.debug("Empty batch, skipping export")
+            logger.info("❤️ batchが空でした。batch: \(batch)")
             return
         }
 
@@ -163,15 +164,21 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     private func exportChunk(_ chunk: [OTelFinishedSpan]) async throws {
+        logger.info("💚  exportChunk開始します。chunk: \(chunk)")
         let traces = try buildTracesData(from: chunk)
+        logger.info("💚  tracesに変換されました。traces: \(traces)")
         let payload = try serializer.serialize(traces)
+        logger.info("💚  ペイロードにserializeされました。")
 
         logger.debug("Serialized payload size: \(payload.count) bytes")
 
         let request = try await createSignedRequest(payload: payload)
+        logger.info("💚  リクエストにSig v4署名されました")
         let response = try await sendRequest(request)
 
+        logger.info("💚  レスポンスが帰りました \(response.statusCode)")
         try validateResponse(response, spanCount: chunk.count)
+        logger.info("💚  レスポンスが正常でした")
     }
 
     // Separated methods for better testability
