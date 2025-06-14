@@ -26,7 +26,7 @@ protocol AWSSigner: Sendable {
 // Default implementation
 struct DefaultAWSSigner: AWSSigner {
     private let signer = AWSSigV4Signer()
-    
+
     func signRequest(
         requestBuilder: HTTPRequestBuilder,
         identity: AWSCredentialIdentity,
@@ -61,7 +61,7 @@ struct XRayOTelExporterConfiguration: Sendable {
     let customURL: URL?
     let maxBatchSize: Int
     let timeoutSeconds: TimeInterval
-    
+
     init(
         awsAccessKey: String,
         awsSecretAccessKey: String,
@@ -79,11 +79,11 @@ struct XRayOTelExporterConfiguration: Sendable {
         self.maxBatchSize = maxBatchSize
         self.timeoutSeconds = timeoutSeconds
     }
-    
+
     var url: URL {
         customURL ?? URL(string: "https://xray.\(region).amazonaws.com/v1/traces")!
     }
-    
+
     var identity: AWSCredentialIdentity {
         .init(
             accessKey: awsAccessKey,
@@ -117,7 +117,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         self.signer = signer
         self.serializer = serializer
     }
-    
+
     // Convenience initializer for backward compatibility
     init(
         awsAccessKey: String,
@@ -147,40 +147,42 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             logger.error("Attempted to export batch while already being shut down.")
             throw OTelSpanExporterAlreadyShutDownError()
         }
-        
+
         guard !batch.isEmpty else {
             logger.debug("Empty batch, skipping export")
             return
         }
-        
+
         logger.debug("Exporting batch of \(batch.count) spans to X-Ray OTLP endpoint")
-        
+
         // バッチを分割して処理
         let spans = Array(batch)
         for chunk in spans.chunked(into: configuration.maxBatchSize) {
             try await exportChunk(chunk)
         }
     }
-    
+
     private func exportChunk(_ chunk: [OTelFinishedSpan]) async throws {
         let traces = try buildTracesData(from: chunk)
         let payload = try serializer.serialize(traces)
-        
+
         logger.debug("Serialized payload size: \(payload.count) bytes")
-        
+
         let request = try await createSignedRequest(payload: payload)
         let response = try await sendRequest(request)
-        
+
         try validateResponse(response, spanCount: chunk.count)
     }
-    
+
     // Separated methods for better testability
-    
-    func buildTracesData(from spans: [OTelFinishedSpan]) throws -> Opentelemetry_Proto_Trace_V1_TracesData {
+
+    func buildTracesData(from spans: [OTelFinishedSpan]) throws
+        -> Opentelemetry_Proto_Trace_V1_TracesData
+    {
         guard let firstSpanResource = spans.first?.resource else {
             throw XRayOTelExporterError.emptyBatch
         }
-        
+
         return Opentelemetry_Proto_Trace_V1_TracesData.with { request in
             request.resourceSpans = [
                 .with { resourceSpans in
@@ -207,7 +209,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             ]
         }
     }
-    
+
     private func createSignedRequest(payload: Data) async throws -> HTTPRequest {
         guard let host = configuration.url.host(percentEncoded: true) else {
             throw XRayOTelExporterError.invalidXRayURL(configuration.url)
@@ -220,18 +222,18 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             .withPath(configuration.url.path)
             .withHeader(name: "Content-Type", value: "application/x-protobuf")
             .withBody(.data(payload))
-        
+
         let signingProperties = createSigningProperties()
-        
+
         let signedBuilder = try await signer.signRequest(
             requestBuilder: builder,
             identity: configuration.identity,
             signingProperties: signingProperties
         )
-        
+
         return signedBuilder.build()
     }
-    
+
     private func createSigningProperties() -> Smithy.Attributes {
         var props = Smithy.Attributes()
         props.set(key: SigningPropertyKeys.signingName, value: "xray")
@@ -241,7 +243,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         props.set(key: SigningPropertyKeys.unsignedBody, value: false)
         return props
     }
-    
+
     private func sendRequest(_ request: HTTPRequest) async throws -> HTTPResponse {
         do {
             return try await client.send(request: request)
@@ -250,24 +252,24 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             throw XRayOTelExporterError.networkError(error)
         }
     }
-    
+
     private func validateResponse(_ response: HTTPResponse, spanCount: Int) throws {
         let status = response.statusCode.rawValue
-        
+
         logger.debug("Received response with status code: \(status)")
-        
+
         guard (200..<300).contains(status) else {
             logger.error("X-Ray OTLP endpoint returned error: \(status)")
             throw XRayOTelExporterError.httpError(statusCode: status, response: response)
         }
-        
+
         logger.debug("Successfully exported \(spanCount) spans to X-Ray")
     }
 
     func forceFlush() async throws {
         logger.debug("Force flush called")
     }
-    
+
     func shutdown() async {
         logger.info("Shutting down X-Ray OTLP exporter")
         shutdowned = true
@@ -284,7 +286,7 @@ enum XRayOTelExporterError: Error, Sendable, Equatable {
     case signingError(Error)
     case emptyBatch
     case maxRetriesExceeded
-    
+
     static func == (lhs: XRayOTelExporterError, rhs: XRayOTelExporterError) -> Bool {
         switch (lhs, rhs) {
         case (.invalidXRayURL(let url1), .invalidXRayURL(let url2)):
@@ -375,7 +377,7 @@ func convertAttribute(attribute: SpanAttribute) -> Opentelemetry_Proto_Common_V1
             return element
         }
         anyValue.arrayValue = arrayValue
-    @unknown default:
+    default:
         return nil
     }
 
@@ -477,7 +479,9 @@ func convertStatus(_ status: SpanStatus) -> Opentelemetry_Proto_Trace_V1_Status 
 }
 
 // Helper function to convert SpanAttributes to array of KeyValue
-private func convertAttributes(_ attributes: SpanAttributes) -> [Opentelemetry_Proto_Common_V1_KeyValue] {
+private func convertAttributes(_ attributes: SpanAttributes)
+    -> [Opentelemetry_Proto_Common_V1_KeyValue]
+{
     var keyValues: [Opentelemetry_Proto_Common_V1_KeyValue] = []
 
     attributes.forEach { key, attribute in
