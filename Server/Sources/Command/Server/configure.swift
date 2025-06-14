@@ -27,4 +27,6 @@ func configure(_ app: Application) async throws {
     // Lambda Web Adapter
     // ================================
     app.get { _ in "It works!" }
+    
+    app.get("**") { req in req.headers.debugDescription }
 }
