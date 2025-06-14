@@ -15,6 +15,10 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-generator.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-openapi-runtime.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-vapor.git", from: "1.0.0"),
+
+        .package(url: "https://github.com/swift-otel/swift-otel.git", from: "0.12.0"),
+        .package(url: "https://github.com/awslabs/aws-sdk-swift.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.0.0"),
     ],
     targets: [
         // MARK: Command
@@ -26,6 +30,8 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "OpenAPIVapor", package: "swift-openapi-vapor"),
+                .product(name: "OTLPGRPC", package: "swift-otel"),
+                .product(name: "AWSSDKHTTPAuth", package: "aws-sdk-swift"),
             ],
             path: "Sources/Command/Server",
             swiftSettings: swiftSettings,

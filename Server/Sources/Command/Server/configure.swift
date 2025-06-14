@@ -1,5 +1,8 @@
+import ClientRuntime
+import OTel
 import OpenAPIRuntime
 import OpenAPIVapor
+import Tracing
 import Vapor
 
 func configure(_ app: Application) async throws {
@@ -27,6 +30,35 @@ func configure(_ app: Application) async throws {
     // Lambda Web Adapter
     // ================================
     app.get { _ in "It works!" }
-    
-    app.get("**") { req in req.headers.debugDescription }
+
+    // ================================
+    // OpenTelemetry
+    // ================================
+    let environment = OTelEnvironment.detected()
+    let resourceDetection = OTelResourceDetection(detectors: [
+        OTelProcessResourceDetector(),
+        OTelEnvironmentResourceDetector(environment: environment),
+        .manual(OTelResource(attributes: ["service.name": "CommandServer"])),
+    ])
+    let resource = await resourceDetection.resource(environment: environment, logLevel: .trace)
+    let exporter = XRayOTelSpanExporter(
+        client: ClientConfigurationDefaults.makeClient(),
+        url: .init(string: "https://xray.ap-northeast-1.amazonaws.com/v1/traces")!,
+    )
+    let processor = OTelBatchSpanProcessor(
+        exporter: exporter,
+        configuration: .init(environment: environment),
+    )
+    let tracer = OTelTracer(
+        idGenerator: OTelRandomIDGenerator(),
+        sampler: OTelConstantSampler(isOn: true),
+        propagator: OTelW3CPropagator(),
+        processor: processor,
+        environment: environment,
+        resource: resource
+    )
+    InstrumentationSystem.bootstrap(tracer)
+
+    app.middleware.use(TracingMiddleware())
+    app.traceAutoPropagation = true
 }
