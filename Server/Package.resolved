@@ -358,7 +358,7 @@
       "location" : "https://github.com/lemo-nade-room/swift-otel-x-ray",
       "state" : {
         "branch" : "main",
-        "revision" : "b838a7064781e1449ff05cb8830e817294986d43"
+        "revision" : "8d25d4b00161f79f91167068be7201520ff4a833"
       }
     },
     {
@@ -429,8 +429,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams",
       "state" : {
-        "revision" : "9281f8c99aff4f4a55dce22ae29b1181c935caa5",
-        "version" : "6.0.0"
+        "revision" : "7568d1c6c63a094405afb32264c57dc4e1435835",
+        "version" : "6.0.1"
       }
     }
   ],
