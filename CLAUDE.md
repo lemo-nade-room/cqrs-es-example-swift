@@ -15,6 +15,20 @@ The project follows CQRS/ES principles with:
 - **Separate deployments**: Each server runs as independent Lambda functions behind API Gateway
 - **OpenTelemetry**: Command server includes X-Ray tracing integration for observability
 
+### X-Ray Integration Details
+
+The Command Server implements AWS X-Ray tracing using OpenTelemetry:
+
+- **Custom X-Ray OTel Exporter** (`Sources/Command/Server/OTel/XRayOTelSpanExporter.swift`): Exports traces to X-Ray's OTLP endpoint (available since November 2024)
+- **X-Ray Propagator** (`Sources/Command/Server/OTel/XRayOTelPropagator.swift`): Handles AWS X-Ray trace header format (`x-amzn-trace-id`)
+- **Serverless Support**: Uses `OTelFlushMiddleware` to ensure traces are exported before Lambda container freezes
+- **Required Environment Variables for X-Ray**:
+  - `AWS_ACCESS_KEY_ID`: AWS access key for authentication
+  - `AWS_SECRET_ACCESS_KEY`: AWS secret key
+  - `AWS_SESSION_TOKEN` (optional): For temporary credentials
+  - `AWS_REGION` (optional): Defaults to `ap-northeast-1`
+  - `AWS_XRAY_URL` (optional): Custom X-Ray endpoint URL
+
 ## Key Components
 
 - **Package.swift**: Defines two executable targets (`CommandServer`, `QueryServer`) with their respective dependencies
@@ -126,9 +140,39 @@ swift run CommandServer > CommandServer.log 2>&1 &
 - **Health Check**: `GET http://127.0.0.1:3001/command/v1/healthcheck`
 - **API Documentation**: See `./Server/Sources/Command/Server/openapi.yaml` for complete API specification
 
+## Troubleshooting
+
+### X-Ray Trace Export Issues
+
+If traces are not being exported to X-Ray:
+
+1. **Check logs for export status**:
+   ```bash
+   tail -f CommandServer.log | grep "\[X-Ray\]"
+   ```
+   Look for:
+   - `[X-Ray] Export started` - Confirms export process initiated
+   - `[X-Ray] Successfully exported N spans` - Confirms successful export
+   - `[X-Ray] Failed to export spans` - Indicates errors
+
+2. **Common issues**:
+   - **Missing AWS credentials**: Ensure environment variables are set
+   - **CRTError code 34**: Usually indicates authentication issues
+   - **No export logs**: Check that `OTelTracer.run()` and `OTelSpanProcessor.run()` are being called in `configure.swift`
+
+3. **Serverless considerations**:
+   - The `OTelFlushMiddleware` ensures traces are exported before Lambda freezes
+   - Each request should trigger immediate export due to `OTelSimpleSpanProcessor` usage
+
 ## Development Prerequisites
 
 This project requires the following capabilities to work effectively:
 - **Swift Package Manager**: `swift build` and `swift test` must work properly
 - **Docker**: Individual server Docker builds must succeed for deployment verification
 - Commands `swift build`, `swift test`, and the Docker build commands above should all execute successfully
+
+## Important Implementation Notes
+
+- **OpenTelemetry Service Lifecycle**: The `OTelTracer` and `OTelSpanProcessor` implement the `Service` protocol and must be started with their `run()` methods for proper span processing
+- **Batch vs Simple Processor**: Currently uses `OTelSimpleSpanProcessor` for immediate export, suitable for serverless environments
+- **X-Ray OTLP Endpoint**: Uses the new X-Ray OTLP endpoint format: `https://xray.{region}.amazonaws.com/v1/traces`
