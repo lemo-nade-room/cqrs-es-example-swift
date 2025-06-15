@@ -176,3 +176,37 @@ This project requires the following capabilities to work effectively:
 - **OpenTelemetry Service Lifecycle**: The `OTelTracer` and `OTelSpanProcessor` implement the `Service` protocol and must be started with their `run()` methods for proper span processing
 - **Batch vs Simple Processor**: Currently uses `OTelSimpleSpanProcessor` for immediate export, suitable for serverless environments
 - **X-Ray OTLP Endpoint**: Uses the new X-Ray OTLP endpoint format: `https://xray.{region}.amazonaws.com/v1/traces`
+
+## SAM (Serverless Application Model) Tips
+
+### Environment Variables
+- **Reserved Variables**: Lambda has reserved environment variables that cannot be set manually. Examples include:
+  - `_X_AMZN_TRACE_ID`: Set automatically by Lambda runtime for X-Ray tracing
+  - Other AWS-specific variables like `AWS_REGION`, `AWS_LAMBDA_FUNCTION_NAME`, etc.
+- Use `sam validate --lint` to check for such issues before deployment
+
+### X-Ray Configuration
+- **Tracing**: Set `Tracing: Active` in the `Globals` section for all functions
+- **Permissions**: Use `AWSXRayDaemonWriteAccess` managed policy or add specific permissions:
+  ```yaml
+  Policies:
+    - AWSXRayDaemonWriteAccess
+    - Statement:
+      - Effect: Allow
+        Action:
+          - xray:PutTraceSegments
+          - xray:PutTelemetryRecords
+        Resource: '*'
+  ```
+- **Environment Variables**: Set `AWS_XRAY_CONTEXT_MISSING: LOG_ERROR` to log errors when trace context is missing
+
+## Swift Specific Notes
+
+### ByteStream Type (AWS SDK)
+- The `ByteStream` enum in AWS SDK Swift has cases: `.data(Data?)`, `.stream(Stream)`, `.noStream`
+- When pattern matching, ensure all cases are handled
+- The `.data` case contains an optional `Data?`, so unwrap before use
+
+### Logging with Vapor
+- Use `Logger.Message` type for log messages: `logger.notice("\(message)")`
+- For deprecated APIs, check encoding requirements (e.g., `String(contentsOfFile:encoding:)`)
