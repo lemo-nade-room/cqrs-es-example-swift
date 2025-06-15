@@ -76,5 +76,7 @@ var swiftSettings: [SwiftSetting] {
     [
         .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
         .enableUpcomingFeature("NonescapableTypes"),
+        .enableUpcomingFeature("ExistentialAny"),
+        .enableUpcomingFeature("InternalImportsByDefault"),
     ]
 }
