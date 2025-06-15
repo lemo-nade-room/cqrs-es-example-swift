@@ -36,6 +36,15 @@ Resources:
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
+          AWS_XRAY_CONTEXT_MISSING: LOG_ERROR
+      Policies:
+        - AWSXRayDaemonWriteAccess
+        - Statement:
+          - Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Resource: '*'
       Events:
         CommandHttpApi:
           Type: HttpApi

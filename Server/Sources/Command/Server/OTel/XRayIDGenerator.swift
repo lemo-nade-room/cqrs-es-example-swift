@@ -10,10 +10,10 @@ public struct XRayIDGenerator: OTelIDGenerator {
     
     public func nextTraceID() -> TraceID {
         // Get current timestamp in seconds (Unix epoch)
-        let timestamp = UInt32(Date().timeIntervalSince1970)
+        // let timestamp = UInt32(Date().timeIntervalSince1970)
         
         // Generate a random TraceID first
-        var traceID = TraceID.random()
+        let traceID = TraceID.random()
         
         // Replace the first 4 bytes with the timestamp to make it X-Ray compatible
         // Note: This is a workaround since we can't directly modify TraceID bytes

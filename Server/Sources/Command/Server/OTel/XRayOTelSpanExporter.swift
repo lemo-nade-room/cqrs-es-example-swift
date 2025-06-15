@@ -234,6 +234,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             .withHeader(name: "Content-Type", value: "application/x-protobuf")
             .withHeader(name: "Accept", value: "application/x-protobuf")
             .withHeader(name: "User-Agent", value: "swift-otel/1.0")
+            .withHeader(name: "X-Amzn-Xray-Format", value: "otlp")
             .withBody(.data(payload))
 
         let signingProperties = createSigningProperties()
@@ -258,19 +259,38 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     private func sendRequest(_ request: HTTPRequest) async throws -> HTTPResponse {
+        // Log detailed request information
+        logger.notice("[X-Ray] Sending request", metadata: [
+            "url": "\(configuration.url)",
+            "method": "\(request.method)",
+            "path": "\(request.path)",
+            "headers": "\(request.headers)"
+        ])
+        
+        // Log request body for debugging
+        switch request.body {
+        case .data(let bodyData):
+            if let bodyData = bodyData {
+                logger.notice("[X-Ray] Request body size: \(bodyData.count) bytes")
+                // Log first 200 bytes of protobuf in hex for debugging
+                let hexString = bodyData.prefix(200).map { String(format: "%02x", $0) }.joined(separator: " ")
+                logger.notice("[X-Ray] Request body (first 200 bytes in hex): \(hexString)")
+            } else {
+                logger.notice("[X-Ray] Request body is nil")
+            }
+        case .stream:
+            logger.notice("[X-Ray] Request body is a stream")
+        case .noStream:
+            logger.notice("[X-Ray] Request has no body")
+        }
+        
         do {
-            logger.notice("[X-Ray] Sending request", metadata: [
-                "url": "\(configuration.url)",
-                "method": "\(request.method)",
-                "path": "\(request.path)",
-                "headers": "\(request.headers)"
-            ])
-            
             // Send request directly without timeout wrapper to avoid potential issues
             let response = try await client.send(request: request)
             
             logger.notice("[X-Ray] Received response", metadata: [
-                "status": "\(response.statusCode.rawValue)"
+                "status": "\(response.statusCode.rawValue)",
+                "headers": "\(response.headers)"
             ])
             
             // Log error response body for debugging
@@ -280,6 +300,9 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
                     if let data = try await response.body.readData() {
                         let bodyString = String(data: data, encoding: .utf8) ?? "Unable to decode body"
                         logger.error("[X-Ray] Error response body: \(bodyString)")
+                        
+                        // Also log response headers for error cases
+                        logger.error("[X-Ray] Error response headers: \(response.headers)")
                     }
                 } catch {
                     logger.error("[X-Ray] Failed to read error response body: \(error)")
@@ -428,14 +451,24 @@ func convertOTelFinishedSpanToProto(span: OTelFinishedSpan) -> Opentelemetry_Pro
     var protoSpan = Opentelemetry_Proto_Trace_V1_Span()
 
     // Trace ID (16 bytes)
-    protoSpan.traceID = span.spanContext.traceID.bytes.withUnsafeBytes { bytes in
+    let traceIDData = span.spanContext.traceID.bytes.withUnsafeBytes { bytes in
         Data(bytes)
     }
+    protoSpan.traceID = traceIDData
+    
+    // Debug: Log trace ID in hex format
+    let traceIDHex = traceIDData.map { String(format: "%02x", $0) }.joined()
+    print("[X-Ray Debug] Trace ID (hex): \(traceIDHex)")
 
     // Span ID (8 bytes)
-    protoSpan.spanID = span.spanContext.spanID.bytes.withUnsafeBytes { bytes in
+    let spanIDData = span.spanContext.spanID.bytes.withUnsafeBytes { bytes in
         Data(bytes)
     }
+    protoSpan.spanID = spanIDData
+    
+    // Debug: Log span ID in hex format
+    let spanIDHex = spanIDData.map { String(format: "%02x", $0) }.joined()
+    print("[X-Ray Debug] Span ID (hex): \(spanIDHex)")
 
     // Parent Span ID (8 bytes, optional)
     if let parentSpanID = span.spanContext.parentSpanID {

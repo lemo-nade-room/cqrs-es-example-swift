@@ -9,6 +9,10 @@ func configure(_ app: Application) async throws {
     // ================================
     // OpenTelemetry
     // ================================
+    
+    // デバッグ情報を出力
+    debugXRayRequest()
+    
     let environment = OTelEnvironment.detected()
     let resourceDetection = OTelResourceDetection(detectors: [
         OTelProcessResourceDetector(),

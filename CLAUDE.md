@@ -73,10 +73,10 @@ docker compose run migrate
 
 # Build individual server Docker images locally
 # Command Server
-docker build --file ./Sources/Command/Dockerfile --tag command-server:latest .
+sudo docker build --file ./Sources/Command/Dockerfile --tag command-server:latest .
 
 # Query Server  
-docker build --file ./Sources/Query/Dockerfile --tag query-server:latest .
+sudo docker build --file ./Sources/Query/Dockerfile --tag query-server:latest .
 ```
 
 ### AWS Deployment
