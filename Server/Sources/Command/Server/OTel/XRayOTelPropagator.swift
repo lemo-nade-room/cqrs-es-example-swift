@@ -37,10 +37,10 @@ struct XRayOTelPropagator: OTelPropagator {
         guard
             let xRayTraceID = extractor.extract(key: Self.xRayTraceIDKey, from: carrier)
         else {
-            logger.notice("❤️ \(Self.xRayTraceIDKey)が見つかりませんでした。carrier: \(carrier)")
+            logger.debug("X-Ray trace ID header not found in carrier")
             return nil
         }
-        logger.notice("💚 \(Self.xRayTraceIDKey)が見つかりました。xRayTraceID: \(xRayTraceID)")
+        logger.debug("Found X-Ray trace ID: \(xRayTraceID)")
 
         var traceID: TraceID? = nil
         var spanID: SpanID? = nil
@@ -53,25 +53,24 @@ struct XRayOTelPropagator: OTelPropagator {
         for field in xRayTraceID.split(separator: ";") {
             if let (_, clock, random) = try rootFieldRegex.wholeMatch(in: field)?.output {
                 traceID = makeTraceID(clock: clock, random: random)
-                logger.notice("💚 traceID: \(traceID!)")
+                logger.trace("Extracted traceID: \(traceID!)")
                 continue
             }
             if let (_, hex) = try parentFieldRegex.wholeMatch(in: field)?.output {
                 spanID = makeSpanID(hex: hex)
-                logger.notice("💚 spanID: \(spanID!)")
+                logger.trace("Extracted spanID: \(spanID!)")
                 continue
             }
             if let (_, n) = try sampledFieldRegex.wholeMatch(in: field)?.output {
                 flags = n == "1" ? .sampled : []
-                logger.notice("💚 flags: \(flags!)")
+                logger.trace("Extracted flags: \(flags!)")
                 continue
             }
         }
 
         guard let traceID, let spanID, let flags else {
-            logger.notice(
-                "❤️ traceID, spanID, flagsのどれかが見つかりませんでした。traceID is nil: \(traceID == nil), spanID is nil: \(spanID == nil), flags is nil: \(flags == nil)"
-            )
+            logger.debug("Failed to extract complete trace context")
+            logger.trace("traceID: \(traceID == nil ? "missing" : "present"), spanID: \(spanID == nil ? "missing" : "present"), flags: \(flags == nil ? "missing" : "present")")
             return nil
         }
 
@@ -83,7 +82,7 @@ struct XRayOTelPropagator: OTelPropagator {
             state: .init()
         )
         
-        logger.notice("💚 traceContextを作成できました: \(traceContext)")
+        logger.trace("Created trace context: \(traceContext)")
 
         // Return the remote span context
         return OTelSpanContext.remote(traceContext: traceContext)
@@ -110,7 +109,7 @@ struct XRayOTelPropagator: OTelPropagator {
         let sampled = "Sampled=\(spanContext.traceFlags.contains(.sampled) ? 1 : 0)"
 
         injector.inject("\(root);\(parent);\(sampled)", forKey: Self.xRayTraceIDKey, into: &carrier)
-        logger.notice("💚 注入しました。: \(root);\(parent);\(sampled)")
+        logger.trace("Injected X-Ray trace header: \(root);\(parent);\(sampled)")
     }
 
 }
@@ -221,7 +220,6 @@ extension Substring {
         stride(from: 0, to: count, by: 2).map { offset in
             let start = index(startIndex, offsetBy: offset)
             let end = index(start, offsetBy: 2)
-            // あらかじめhexDigitの正規表現で担保しているため強制unwrapしても問題ない
             return UInt8(self[start..<end], radix: 16)!
         }
     }

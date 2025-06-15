@@ -35,8 +35,30 @@ func configure(_ app: Application) async throws {
         resource: resource
     )
     InstrumentationSystem.bootstrap(tracer)
+    
+    // Start OTelTracer and Processor services
+    Task {
+        async let tracerRun: Void = {
+            do {
+                try await tracer.run()
+            } catch {
+                app.logger.error("OTelTracer failed to run: \(error)")
+            }
+        }()
+        
+        async let processorRun: Void = {
+            do {
+                try await processor.run()
+            } catch {
+                app.logger.error("OTelProcessor failed to run: \(error)")
+            }
+        }()
+        
+        _ = await (tracerRun, processorRun)
+    }
 
     app.middleware.use(TracingMiddleware())
+    app.middleware.use(OTelFlushMiddleware(processor: processor))
     app.traceAutoPropagation = true
 
     // ================================

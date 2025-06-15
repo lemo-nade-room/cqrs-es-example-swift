@@ -1,4 +1,5 @@
 import Instrumentation
+import Logging
 import OTel
 import Testing
 
@@ -8,7 +9,7 @@ import Testing
     @Test("x-amzn-trace-idが存在しない場合は抽出できずコンテキストはnilとなる")
     func testExtractReturnsNilWhenHeaderAbsent() async throws {
         let headers = [String: String]()
-        let sut = XRayOTelPropagator()
+        let sut = XRayOTelPropagator(logger: Logger(label: "test"))
 
         let actual = try sut.extractSpanContext(from: headers, using: DictionaryExtractor())
 
@@ -21,7 +22,7 @@ import Testing
             "x-amzn-trace-id":
                 "Root=1-684cd338-55ea19fa5d8a7e683178aa1b;Parent=944a39c5ded7c2b1;Sampled=1;Lineage=1:7326f8b8:0"
         ]
-        let sut = XRayOTelPropagator()
+        let sut = XRayOTelPropagator(logger: Logger(label: "test"))
 
         let actual = try #require(
             try sut.extractSpanContext(from: headers, using: DictionaryExtractor()))
@@ -130,7 +131,7 @@ import Testing
             traceFlags: .init(),
             traceState: .init()
         )
-        let sut = XRayOTelPropagator()
+        let sut = XRayOTelPropagator(logger: Logger(label: "test"))
 
         sut.inject(spanContext, into: &headers, using: DictionaryInjector())
 

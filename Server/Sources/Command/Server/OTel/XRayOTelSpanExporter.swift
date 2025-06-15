@@ -140,22 +140,26 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             client: client,
             logger: logger
         )
+        
+        logger.notice("[X-Ray] Exporter initialized", metadata: [
+            "region": "\(region)",
+            "url": "\(config.url)"
+        ])
     }
 
     func export(_ batch: some Collection<OTelFinishedSpan> & Sendable) async throws {
-        print("💛 export 開始です")
+        logger.notice("[X-Ray] Export started")
         guard !shutdowned else {
             logger.error("Attempted to export batch while already being shut down.")
             throw OTelSpanExporterAlreadyShutDownError()
         }
 
         guard !batch.isEmpty else {
-            logger.debug("Empty batch, skipping export")
-            logger.notice("❤️ batchが空でした。batch: \(batch)")
+            logger.notice("[X-Ray] Empty batch, skipping export")
             return
         }
 
-        logger.debug("Exporting batch of \(batch.count) spans to X-Ray OTLP endpoint")
+        logger.notice("[X-Ray] Exporting batch of \(batch.count) spans")
 
         // バッチを分割して処理
         let spans = Array(batch)
@@ -165,21 +169,20 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     private func exportChunk(_ chunk: [OTelFinishedSpan]) async throws {
-        logger.notice("💛  exportChunk開始します。chunk: \(chunk)")
+        logger.notice("[X-Ray] Processing chunk of \(chunk.count) spans")
         let traces = try buildTracesData(from: chunk)
-        logger.notice("💛  tracesに変換されました。traces: \(traces)")
         let payload = try serializer.serialize(traces)
-        logger.notice("💛  ペイロードにserializeされました。")
+        logger.notice("[X-Ray] Serialized payload: \(payload.count) bytes")
 
-        logger.debug("Serialized payload size: \(payload.count) bytes")
-
-        let request = try await createSignedRequest(payload: payload)
-        logger.notice("💛  リクエストにSig v4署名されました")
-        let response = try await sendRequest(request)
-
-        logger.notice("💛  レスポンスが帰りました \(response.statusCode)")
-        try validateResponse(response, spanCount: chunk.count)
-        logger.notice("💛  レスポンスが正常でした")
+        do {
+            let request = try await createSignedRequest(payload: payload)
+            logger.notice("[X-Ray] Request signed with AWS SigV4")
+            let response = try await sendRequest(request)
+            try validateResponse(response, spanCount: chunk.count)
+        } catch {
+            logger.error("[X-Ray] Failed to export spans: \(error)")
+            throw error
+        }
     }
 
     // Separated methods for better testability
@@ -254,9 +257,17 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
 
     private func sendRequest(_ request: HTTPRequest) async throws -> HTTPResponse {
         do {
-            return try await client.send(request: request)
+            logger.notice("[X-Ray] Sending request", metadata: [
+                "url": "\(configuration.url)",
+                "method": "\(request.method)"
+            ])
+            let response = try await client.send(request: request)
+            logger.notice("[X-Ray] Received response", metadata: [
+                "status": "\(response.statusCode.rawValue)"
+            ])
+            return response
         } catch {
-            logger.error("Failed to send request to X-Ray: \(error)")
+            logger.error("[X-Ray] Failed to send request: \(error)")
             throw XRayOTelExporterError.networkError(error)
         }
     }
@@ -271,7 +282,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             throw XRayOTelExporterError.httpError(statusCode: status, response: response)
         }
 
-        logger.debug("Successfully exported \(spanCount) spans to X-Ray")
+        logger.notice("[X-Ray] Successfully exported \(spanCount) spans")
     }
 
     func forceFlush() async throws {

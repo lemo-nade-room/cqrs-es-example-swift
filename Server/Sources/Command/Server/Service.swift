@@ -13,12 +13,7 @@ struct Service: APIProtocol {
     func getV1Healthcheck(
         _ input: Operations.GetV1Healthcheck.Input
     ) async throws -> Operations.GetV1Healthcheck.Output {
-        logger.info("💚 INFOです")
-        logger.notice("💚 NOTICEです")
-        return try await InstrumentationSystem.tracer.withSpan("Sleep") { span in
-            logger.warning("💚 WARNINGです")
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            return .ok(.init(body: .plainText("Command Server Working!")))
-        }
+        logger.notice("[Healthcheck] Request received")
+        return .ok(.init(body: .plainText("Command Server Working!")))
     }
 }
