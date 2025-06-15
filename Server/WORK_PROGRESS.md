@@ -1,14 +1,16 @@
 # 作業進捗とコンテキスト
 
-## 現在の状況（2025-06-15 更新）
+## 現在の状況（2025-06-15 18:56 JST 更新）
 
 ### 完了した作業
 
-#### 1. X-Ray OTelエクスポート問題の調査と修正
+#### 1. X-Ray OTelエクスポート問題の調査と修正 ✅
 - **問題**: Lambda環境でX-Rayへのトレースエクスポートが失敗（400エラー）
 - **原因**: 
-  - X-RayがOTLP形式を受け付けるが、X-Ray特有のトレースIDフォーマットを要求
-  - 標準的なW3CトレースIDではなく、X-Rayフォーマット（`1-{timestamp}-{random}`）が必要
+  - ~~X-RayがOTLP形式を受け付けるが、X-Ray特有のトレースIDフォーマットを要求~~
+  - ~~標準的なW3CトレースIDではなく、X-Rayフォーマット（`1-{timestamp}-{random}`）が必要~~
+  - **実際の原因**: LambdaのトレースIDがOTelスパンに正しく伝播されていなかった
+- **解決**: HTTPヘッダーからX-RayトレースIDを抽出し、OTelスパンに使用するよう修正
 
 #### 2. 実装した修正
 
@@ -70,72 +72,73 @@
 3. `xray-otel-final-solution.md` - 最終的な実装内容
 4. `log-events-viewer-result.csv` - Lambda実行ログ（1回目）
 5. `log-events-viewer-result2.csv` - Lambda実行ログ（2回目）
+6. `log-events-viewer-result-divide-target.csv` - ライブラリ化後のLambda実行ログ
 
 ## 次のステップ
 
-### 1. Lambda環境での再テスト（優先度：高）
-```bash
-# デプロイ
-cd Server
-sam build
-sam deploy
+### 1. swift-otel-x-rayのOSS化（検討中）
+現在は`Server/swift-otel-x-ray`として実装されているが、以下を検討：
+- 独立したGitHubリポジトリとして公開
+- Swift Package Indexへの登録
+- ドキュメントの整備
+- サンプルコードの追加
 
-# CloudWatchログを確認
-# 特に以下の新しいデバッグログに注目：
-# - [X-Ray Debug] 環境変数の詳細
-# - [X-Ray] Request body (first 200 bytes in hex): リクエストペイロードの内容
-# - [X-Ray] Error response headers: エラー時のレスポンスヘッダー
-```
+#### 5. OTel-X-Ray統合のライブラリ化 ✅
+- **実施内容**:
+  - `Server/swift-otel-x-ray`として独立したSwiftパッケージを作成
+  - OTLPXRayライブラリとして以下のコンポーネントを含む：
+    - `XRayOTelSpanExporter`: X-Ray OTLPエンドポイントへのエクスポーター
+    - `XRayOTelPropagator`: X-Rayトレースヘッダーの伝播
+    - `XRayTracingMiddleware`: HTTPヘッダーからトレースIDを抽出
+    - `OTelFlushMiddleware`: Lambda freeze前のスパンフラッシュ
+  - Serverプロジェクトから相対パスで依存
+- **確認済み**:
+  - ビルド成功
+  - テスト成功（6個のテスト）
+  - Lambdaデプロイ後も正常動作
+  - トレースIDの正しい伝播を確認
 
-### 2. 400エラーの根本原因特定
-今回追加したデバッグ情報から以下を確認：
-- Lambda実行環境の詳細（環境変数、トレースID形式）
-- リクエストペイロードの実際の内容
-- エラーレスポンスの詳細ヘッダー
+### 動作確認済みの挙動
 
-### 3. 考えられる解決策
+1. **トレースIDの伝播**:
+   - LambdaがHTTPヘッダー`x-amzn-trace-id`でトレースIDを提供
+   - `XRayTracingMiddleware`がヘッダーからトレースIDを抽出
+   - 抽出したトレースIDでOTelスパンを作成
+   - X-Rayへのエクスポート時も同じトレースIDを使用
 
-#### a) X-Ray OTLPエンドポイントの正確な仕様確認
-- AWS Supportへの問い合わせ
-- X-Ray OTLP仕様ドキュメントの詳細確認
-- 必要に応じて別のエンドポイントパスを試す
+2. **X-Rayへの正常なエクスポート**:
+   - AWS SigV4で署名されたリクエスト
+   - X-Ray OTLPエンドポイント（`https://xray.ap-northeast-1.amazonaws.com/v1/traces`）へ送信
+   - エラーなく処理完了
 
-#### b) リクエストフォーマットの調整
-- Content-Typeの変更（`application/octet-stream`など）
-- 追加のX-Ray固有ヘッダーの確認
+3. **ログ出力**:
+   - すべての重要な処理ステップでログ出力
+   - デバッグ情報を含む（トレースID、リクエスト詳細など）
 
-#### c) ネットワーク設定の確認
-- Lambda VPC設定の確認
-- X-Ray VPCエンドポイントの必要性
-- セキュリティグループ/NACLの設定
+## 解決された技術的課題
 
-### 4. 代替実装の検討（必要に応じて）
-- AWS Distro for OpenTelemetry (ADOT) Lambdaレイヤーの使用
-- X-Ray Daemonを介したトレース送信
-- カスタムX-Rayセグメント実装
+### 1. ~~TraceID構造の制限~~ ✅
+- ~~W3CTraceContextライブラリのTraceIDは内部構造へのアクセスが制限~~
+- ~~`bytes`プロパティの型が不明確~~
+- ~~X-Rayフォーマットへの正確な変換が困難~~
+- **解決**: HTTPヘッダーからX-RayトレースIDを直接使用することで回避
 
-## 技術的な課題
-
-### 1. TraceID構造の制限
-- W3CTraceContextライブラリのTraceIDは内部構造へのアクセスが制限
-- `bytes`プロパティの型が不明確
-- X-Rayフォーマットへの正確な変換が困難
-
-### 2. X-Ray OTLP エンドポイントの仕様
+### 2. X-Ray OTLP エンドポイントの仕様 ✅
 - 2024年11月にリリースされた新機能
-- ドキュメントが少ない
-- 正確な要件が不明確
+- ~~ドキュメントが少ない~~
+- ~~正確な要件が不明確~~
+- **解決**: 実装とテストにより正常動作を確認
 
-### 3. Swift エコシステムの課題
-- OpenTelemetry Swiftの成熟度
-- AWS SDK for Swiftとの統合
-- サンプルコードの不足
+### 3. Swift エコシステムの課題（部分的に解決）
+- OpenTelemetry Swiftの成熟度 → 基本的な動作は確認
+- AWS SDK for Swiftとの統合 → SigV4署名で成功
+- ~~サンプルコードの不足~~ → 今回の実装がサンプルとなる
 
 ## 推奨アクション
 
-1. **短期的**: 現在の実装でLambdaにデプロイし、詳細なエラーメッセージを取得
-2. **中期的**: エラーメッセージに基づいて修正を実施
-3. **長期的**: より堅牢な実装（ADOT使用など）を検討
+1. **短期的**: ✅ 完了 - X-Rayトレースの正常動作を確認
+2. **中期的**: swift-otel-x-rayライブラリのOSS化
+3. **長期的**: コミュニティフィードバックに基づく改善
 
 ## 参考情報
 

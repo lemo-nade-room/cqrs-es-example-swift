@@ -16,7 +16,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-runtime.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-vapor.git", from: "1.0.0"),
 
-        .package(path: "./swift-otel-x-ray"),
+        .package(url: "https://github.com/lemo-nade-room/swift-otel-x-ray", branch: "main"),
     ],
     targets: [
         // MARK: Command

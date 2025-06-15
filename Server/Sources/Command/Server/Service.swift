@@ -14,6 +14,7 @@ struct Service: APIProtocol {
         _ input: Operations.GetV1Healthcheck.Input
     ) async throws -> Operations.GetV1Healthcheck.Output {
         logger.notice("[Healthcheck] Request received")
+        
         return .ok(.init(body: .plainText("Command Server Working!")))
     }
 }

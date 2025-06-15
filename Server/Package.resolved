@@ -1,5 +1,5 @@
 {
-  "originHash" : "c002490dd83692a99794368adeb79d2ad88fe88771781830ed91e0a20e49f2e5",
+  "originHash" : "c97ad5643b898bd541ffafaefaef952ed56f679e2f7e43c412cb7df70f85403b",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -350,6 +350,15 @@
       "state" : {
         "revision" : "1e719806d05b13fe1976903ce3d468a5f11c8ed2",
         "version" : "0.12.0"
+      }
+    },
+    {
+      "identity" : "swift-otel-x-ray",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/lemo-nade-room/swift-otel-x-ray",
+      "state" : {
+        "branch" : "main",
+        "revision" : "b838a7064781e1449ff05cb8830e817294986d43"
       }
     },
     {
