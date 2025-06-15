@@ -11,9 +11,11 @@ struct OTelFlushMiddleware: AsyncMiddleware {
         let response = try await next.respond(to: request)
         
         do {
+            request.logger.notice("[OTelFlushMiddleware] Flushing spans before Lambda freeze")
             try await processor.forceFlush()
+            request.logger.notice("[OTelFlushMiddleware] Flush completed successfully")
         } catch {
-            request.logger.error("Failed to flush OpenTelemetry spans: \(error)")
+            request.logger.error("[OTelFlushMiddleware] Failed to flush OpenTelemetry spans: \(error)")
         }
         
         return response

@@ -261,7 +261,10 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
                 "url": "\(configuration.url)",
                 "method": "\(request.method)"
             ])
+            
+            // Send request directly without timeout wrapper to avoid potential issues
             let response = try await client.send(request: request)
+            
             logger.notice("[X-Ray] Received response", metadata: [
                 "status": "\(response.statusCode.rawValue)"
             ])
@@ -286,7 +289,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     func forceFlush() async throws {
-        logger.debug("Force flush called")
+        logger.notice("[X-Ray] Force flush called - no pending spans to export (SimpleSpanProcessor exports immediately)")
     }
 
     func shutdown() async {
