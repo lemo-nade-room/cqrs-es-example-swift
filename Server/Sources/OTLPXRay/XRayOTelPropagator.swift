@@ -8,11 +8,11 @@ import W3CTraceContext
 ///
 /// This propagator extracts and injects trace context from/to the AWS X-Ray trace header format.
 /// It implements the OTelPropagator protocol to provide compatibility with OpenTelemetry instrumentation.
-struct XRayOTelPropagator: OTelPropagator {
+public struct XRayOTelPropagator: OTelPropagator {
 
     private var logger: Logger
     
-    init(logger: Logger) {
+    public init(logger: Logger) {
         self.logger = logger
     }
 
@@ -30,7 +30,7 @@ struct XRayOTelPropagator: OTelPropagator {
     ///   - extractor: The extractor used to extract data from the carrier.
     /// - Returns: An OTelSpanContext if extraction was successful, nil otherwise.
     /// - Throws: An error if extraction fails.
-    func extractSpanContext<Carrier, Extract: Extractor>(
+    public func extractSpanContext<Carrier, Extract: Extractor>(
         from carrier: Carrier,
         using extractor: Extract
     ) throws -> OTelSpanContext? where Extract.Carrier == Carrier {
@@ -97,7 +97,7 @@ struct XRayOTelPropagator: OTelPropagator {
     ///   - spanContext: The OTel span context to inject.
     ///   - carrier: The carrier to inject the context into.
     ///   - injector: The injector used to inject data into the carrier.
-    func inject<Carrier, Inject>(
+    public func inject<Carrier, Inject>(
         _ spanContext: OTelSpanContext,
         into carrier: inout Carrier,
         using injector: Inject

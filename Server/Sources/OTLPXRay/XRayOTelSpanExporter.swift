@@ -53,7 +53,7 @@ struct DefaultTraceSerializer: TraceSerializer {
 
 // MARK: - Configuration
 
-struct XRayOTelExporterConfiguration: Sendable {
+public struct XRayOTelExporterConfiguration: Sendable {
     let awsAccessKey: String
     let awsSecretAccessKey: String
     let awsSessionToken: String?
@@ -62,7 +62,7 @@ struct XRayOTelExporterConfiguration: Sendable {
     let maxBatchSize: Int
     let timeoutSeconds: TimeInterval
 
-    init(
+    public init(
         awsAccessKey: String,
         awsSecretAccessKey: String,
         awsSessionToken: String? = nil,
@@ -96,7 +96,7 @@ struct XRayOTelExporterConfiguration: Sendable {
 // MARK: - Main Exporter
 
 /// AWS X-Ray の OTLP HTTP エンドポイントに Span を送る Exporter
-actor XRayOTelSpanExporter: OTelSpanExporter {
+public actor XRayOTelSpanExporter: OTelSpanExporter {
     private let configuration: XRayOTelExporterConfiguration
     private let client: any HTTPClient
     private let logger: Logger
@@ -119,7 +119,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
     }
 
     // Convenience initializer for backward compatibility
-    init(
+    public init(
         awsAccessKey: String,
         awsSecretAccessKey: String,
         awsSessionToken: String? = nil,
@@ -147,7 +147,7 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         ])
     }
 
-    func export(_ batch: some Collection<OTelFinishedSpan> & Sendable) async throws {
+    public func export(_ batch: some Collection<OTelFinishedSpan> & Sendable) async throws {
         logger.notice("[X-Ray] Export started")
         guard !shutdowned else {
             logger.error("Attempted to export batch while already being shut down.")
@@ -335,11 +335,11 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         logger.notice("[X-Ray] Successfully exported \(spanCount) spans")
     }
 
-    func forceFlush() async throws {
+    public func forceFlush() async throws {
         logger.notice("[X-Ray] Force flush called - no pending spans to export (SimpleSpanProcessor exports immediately)")
     }
 
-    func shutdown() async {
+    public func shutdown() async {
         logger.notice("Shutting down X-Ray OTLP exporter")
         shutdowned = true
     }

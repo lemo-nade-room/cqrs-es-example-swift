@@ -3,7 +3,7 @@ import Logging
 import OTel
 import Testing
 
-@testable import CommandServer
+@testable import OTLPXRay
 
 @Suite struct XRayOTelPropagatorTests {
     @Test("x-amzn-trace-idが存在しない場合は抽出できずコンテキストはnilとなる")
