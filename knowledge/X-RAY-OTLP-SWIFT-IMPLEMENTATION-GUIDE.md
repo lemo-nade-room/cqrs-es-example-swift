@@ -208,7 +208,7 @@ sam logs -n CommandServerFunction --tail
 
 ## References
 
-- [Our Implementation](../Sources/Command/Server/OTel/)
+- [Our Implementation](../Server/Sources/Command/Server/OTel/)
 - [Work Progress](../Server/WORK_PROGRESS.md)
 - [X-Ray OTLP Documentation](AWS_XRAY_OTLP_ENDPOINT_DOCUMENTATION.md)
 - [Lambda Configuration](../Server/template.yaml)
