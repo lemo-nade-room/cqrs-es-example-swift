@@ -92,6 +92,40 @@ Tests are organized by server type:
 - Uses Swift Testing framework with `@Test` and `@Suite` annotations
 - VaporTesting for HTTP endpoint testing
 
+## Server Management
+
+### Starting CommandServer in Background
+```bash
+# Change to Server directory
+cd Server
+
+# Start CommandServer in background with logging
+swift run CommandServer > CommandServer.log 2>&1 &
+
+# Wait for server to start (look for this message in logs)
+# [ NOTICE ] Server started on http://127.0.0.1:3001
+
+# Check server logs
+tail -f CommandServer.log
+
+# Test server healthcheck
+xh GET http://127.0.0.1:3001/command/v1/healthcheck
+```
+
+### Restarting Server After Code Changes
+```bash
+# Find and kill existing server process
+lsof -i:3001
+kill <PID>
+
+# Start server again
+swift run CommandServer > CommandServer.log 2>&1 &
+```
+
+### Server Endpoints
+- **Health Check**: `GET http://127.0.0.1:3001/command/v1/healthcheck`
+- **API Documentation**: See `./Server/Sources/Command/Server/openapi.yaml` for complete API specification
+
 ## Development Prerequisites
 
 This project requires the following capabilities to work effectively:
