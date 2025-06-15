@@ -210,3 +210,4 @@ This project requires the following capabilities to work effectively:
 ### Logging with Vapor
 - Use `Logger.Message` type for log messages: `logger.notice("\(message)")`
 - For deprecated APIs, check encoding requirements (e.g., `String(contentsOfFile:encoding:)`)
+```
