@@ -13,6 +13,9 @@ public final class XRayTracingMiddleware: AsyncMiddleware {
         // Extract parent context from headers using X-Ray propagator
         var parentContext = request.serviceContext
         
+        // Log all headers for debugging
+        request.logger.info("[XRayTracingMiddleware] All headers: \(request.headers)")
+        
         // Log the incoming headers for debugging
         if let xrayHeader = request.headers["x-amzn-trace-id"].first {
             request.logger.info("[XRayTracingMiddleware] Found X-Ray header: \(xrayHeader)")
