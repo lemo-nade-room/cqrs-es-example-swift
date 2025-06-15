@@ -43,11 +43,17 @@ func debugXRayRequest() {
                 let parts = root.split(separator: "-")
                 if parts.count == 3 && parts[0] == "1" {
                     logger.notice("  Valid X-Ray format: version=\(parts[0]), timestamp=\(parts[1]), random=\(parts[2])")
+                    
+                    // W3C形式への変換結果を表示
+                    let w3cHex = String(parts[1]) + String(parts[2])
+                    logger.notice("  Converted to W3C format: \(w3cHex)")
                 } else {
                     logger.error("  Invalid X-Ray format!")
                 }
             }
         }
+    } else {
+        logger.notice("_X_AMZN_TRACE_ID not set - Lambda may set it at runtime")
     }
     
     // 3. VPC/ネットワーク設定の確認

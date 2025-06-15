@@ -9,24 +9,62 @@ public struct XRayIDGenerator: OTelIDGenerator {
     public init() {}
     
     public func nextTraceID() -> TraceID {
-        // Get current timestamp in seconds (Unix epoch)
-        // let timestamp = UInt32(Date().timeIntervalSince1970)
+        // Lambda環境の場合、既存のX-RayトレースIDを使用
+        if let lambdaTraceHeader = ProcessInfo.processInfo.environment["_X_AMZN_TRACE_ID"] {
+            // トレースヘッダーを解析
+            // 形式: Root=1-684e7cbb-176c922523d069c201a47711;Parent=...;Sampled=...
+            let components = lambdaTraceHeader.split(separator: ";")
+            if let rootComponent = components.first(where: { $0.hasPrefix("Root=") }) {
+                let rootValue = String(rootComponent.dropFirst(5)) // "Root="を削除
+                // X-Ray形式: 1-684e7cbb-176c922523d069c201a47711
+                // W3C形式に変換: 684e7cbb176c922523d069c201a47711
+                let parts = rootValue.split(separator: "-")
+                if parts.count == 3 && parts[0] == "1" {
+                    // タイムスタンプとランダム部分を結合
+                    let w3cHex = String(parts[1]) + String(parts[2])
+                    
+                    // 16進数文字列をバイト配列に変換
+                    if let traceID = parseTraceID(from: w3cHex) {
+                        return traceID
+                    }
+                }
+            }
+        }
         
-        // Generate a random TraceID first
-        let traceID = TraceID.random()
-        
-        // Replace the first 4 bytes with the timestamp to make it X-Ray compatible
-        // Note: This is a workaround since we can't directly modify TraceID bytes
-        // The trace ID will still work with X-Ray as long as the timestamp is in the correct format
-        
-        // For now, we'll generate a standard random trace ID
-        // X-Ray should still accept it, but it won't have the exact X-Ray format
-        return traceID
+        // Lambda環境でない場合、または解析に失敗した場合は通常のランダムIDを生成
+        return TraceID.random()
     }
     
     public func nextSpanID() -> SpanID {
         // X-Ray uses 64-bit span IDs, which matches W3C format
         return SpanID.random()
+    }
+    
+    /// X-Ray形式の16進数文字列からTraceIDを作成
+    private func parseTraceID(from hexString: String) -> TraceID? {
+        guard hexString.count == 32 else { return nil }
+        
+        var bytes: [UInt8] = []
+        var index = hexString.startIndex
+        
+        for _ in 0..<16 {
+            let nextIndex = hexString.index(index, offsetBy: 2)
+            if let byte = UInt8(hexString[index..<nextIndex], radix: 16) {
+                bytes.append(byte)
+            } else {
+                return nil
+            }
+            index = nextIndex
+        }
+        
+        guard bytes.count == 16 else { return nil }
+        
+        return TraceID(bytes: .init((
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        )))
     }
 }
 
