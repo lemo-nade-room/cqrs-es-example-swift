@@ -61,11 +61,6 @@ func configure(_ app: Application) async throws {
         _ = await (tracerRun, processorRun)
     }
 
-    // Use custom X-Ray tracing middleware instead of default TracingMiddleware
-    app.middleware.use(XRayTracingMiddleware())
-    app.middleware.use(OTelFlushMiddleware(processor: processor))
-    app.traceAutoPropagation = true
-
     // ================================
     // HTTP Server Configuration
     // ================================
@@ -82,6 +77,12 @@ func configure(_ app: Application) async throws {
     // OpenAPI Vapor Transport
     // ================================
     app.middleware.use(VaporRequestMiddleware())
+    
+    // Use custom X-Ray tracing middleware instead of default TracingMiddleware
+    // Must be added after VaporRequestMiddleware to ensure it applies to all routes
+    app.middleware.use(XRayTracingMiddleware())
+    app.middleware.use(OTelFlushMiddleware(processor: processor))
+    app.traceAutoPropagation = true
     let transport = VaporTransport(routesBuilder: app)
     let service = Service(logger: app.logger)
     let serverURL: URL =
