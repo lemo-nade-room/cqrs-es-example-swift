@@ -232,6 +232,8 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             .withHost(host)
             .withPath(configuration.url.path)
             .withHeader(name: "Content-Type", value: "application/x-protobuf")
+            .withHeader(name: "Accept", value: "application/x-protobuf")
+            .withHeader(name: "User-Agent", value: "swift-otel/1.0")
             .withBody(.data(payload))
 
         let signingProperties = createSigningProperties()
@@ -259,7 +261,9 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
         do {
             logger.notice("[X-Ray] Sending request", metadata: [
                 "url": "\(configuration.url)",
-                "method": "\(request.method)"
+                "method": "\(request.method)",
+                "path": "\(request.path)",
+                "headers": "\(request.headers)"
             ])
             
             // Send request directly without timeout wrapper to avoid potential issues
@@ -268,6 +272,20 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
             logger.notice("[X-Ray] Received response", metadata: [
                 "status": "\(response.statusCode.rawValue)"
             ])
+            
+            // Log error response body for debugging
+            if response.statusCode.rawValue >= 400 {
+                // Read body stream if available
+                do {
+                    if let data = try await response.body.readData() {
+                        let bodyString = String(data: data, encoding: .utf8) ?? "Unable to decode body"
+                        logger.error("[X-Ray] Error response body: \(bodyString)")
+                    }
+                } catch {
+                    logger.error("[X-Ray] Failed to read error response body: \(error)")
+                }
+            }
+            
             return response
         } catch {
             logger.error("[X-Ray] Failed to send request: \(error)")

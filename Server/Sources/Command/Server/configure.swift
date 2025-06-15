@@ -27,7 +27,7 @@ func configure(_ app: Application) async throws {
     )
     let processor = OTelSimpleSpanProcessor(exporter: exporter)
     let tracer = OTelTracer(
-        idGenerator: OTelRandomIDGenerator(),
+        idGenerator: XRayIDGenerator(),
         sampler: OTelConstantSampler(isOn: true),
         propagator: XRayOTelPropagator(logger: app.logger),
         processor: processor,
