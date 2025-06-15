@@ -29,32 +29,7 @@ func debugXRayRequest() {
     }
     
     // 2. Lambda実行環境の確認
-    if let traceID = ProcessInfo.processInfo.environment["_X_AMZN_TRACE_ID"] {
-        logger.notice("Lambda Trace ID format: \(traceID)")
-        
-        // トレースIDの解析
-        let components = traceID.split(separator: ";")
-        for component in components {
-            if component.hasPrefix("Root=") {
-                let root = String(component.dropFirst(5))
-                logger.notice("  Root trace ID: \(root)")
-                
-                // X-Ray形式の検証
-                let parts = root.split(separator: "-")
-                if parts.count == 3 && parts[0] == "1" {
-                    logger.notice("  Valid X-Ray format: version=\(parts[0]), timestamp=\(parts[1]), random=\(parts[2])")
-                    
-                    // W3C形式への変換結果を表示
-                    let w3cHex = String(parts[1]) + String(parts[2])
-                    logger.notice("  Converted to W3C format: \(w3cHex)")
-                } else {
-                    logger.error("  Invalid X-Ray format!")
-                }
-            }
-        }
-    } else {
-        logger.notice("_X_AMZN_TRACE_ID not set - Lambda may set it at runtime")
-    }
+    logger.notice("X-Ray trace IDs are extracted from HTTP headers, not environment variables")
     
     // 3. VPC/ネットワーク設定の確認
     logger.notice("Network Configuration:")

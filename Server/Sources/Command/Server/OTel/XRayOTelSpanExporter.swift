@@ -170,6 +170,12 @@ actor XRayOTelSpanExporter: OTelSpanExporter {
 
     private func exportChunk(_ chunk: [OTelFinishedSpan]) async throws {
         logger.notice("[X-Ray] Processing chunk of \(chunk.count) spans")
+        
+        // Log trace IDs being exported
+        for span in chunk {
+            logger.notice("[X-Ray] Exporting span with trace ID: \(span.spanContext.traceID)")
+        }
+        
         let traces = try buildTracesData(from: chunk)
         let payload = try serializer.serialize(traces)
         logger.notice("[X-Ray] Serialized payload: \(payload.count) bytes")

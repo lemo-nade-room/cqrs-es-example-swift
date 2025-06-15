@@ -61,7 +61,8 @@ func configure(_ app: Application) async throws {
         _ = await (tracerRun, processorRun)
     }
 
-    app.middleware.use(TracingMiddleware())
+    // Use custom X-Ray tracing middleware instead of default TracingMiddleware
+    app.middleware.use(XRayTracingMiddleware())
     app.middleware.use(OTelFlushMiddleware(processor: processor))
     app.traceAutoPropagation = true
 
