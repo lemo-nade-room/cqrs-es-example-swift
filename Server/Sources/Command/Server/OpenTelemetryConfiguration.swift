@@ -6,7 +6,7 @@ import Vapor
 
 enum OpenTelemetryConfiguration {
     static func configureOpenTelemetry(
-        serviceName: String, otlpEndpoint: String? = nil
+        serviceName: String, otlpEndpoint: String? = nil, app: Application? = nil
     ) async throws {
         let environmentName = (try? Environment.detect().name) ?? "development"
         let resource = Resource(attributes: [
@@ -26,7 +26,10 @@ enum OpenTelemetryConfiguration {
                 && customEndpoint.contains(".amazonaws.com")
             {
                 // X-RayのOTLPエンドポイントが指定された場合
-                spanExporter = try await AWSXRayOTLPExporter(endpoint: URL(string: customEndpoint)!)
+                spanExporter = try await AWSXRayOTLPExporter(
+                    endpoint: URL(string: customEndpoint)!,
+                    eventLoopGroup: app?.eventLoopGroup
+                )
             } else {
                 // カスタムエンドポイント（ローカルJaegerなど）
                 // 現時点では標準出力エクスポーターを使用
@@ -36,7 +39,7 @@ enum OpenTelemetryConfiguration {
             }
         } else if isLambda {
             // Lambda環境ではX-RayのOTLPエンドポイントを使用
-            spanExporter = try await AWSXRayOTLPExporter()
+            spanExporter = try await AWSXRayOTLPExporter(eventLoopGroup: app?.eventLoopGroup)
         } else {
             // ローカル開発環境のデフォルト
             // 現時点では標準出力エクスポーターを使用

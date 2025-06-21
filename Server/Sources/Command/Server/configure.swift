@@ -12,7 +12,8 @@ func configure(_ app: Application) async throws {
     let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT")
     try await OpenTelemetryConfiguration.configureOpenTelemetry(
         serviceName: "command-server",
-        otlpEndpoint: otlpEndpoint
+        otlpEndpoint: otlpEndpoint,
+        app: app
     )
 
     let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")

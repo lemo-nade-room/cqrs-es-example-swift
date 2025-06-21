@@ -84,5 +84,9 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - AWS SDK for Swift（`aws-sdk-swift`）：
   - バージョン指定は`from: "1.0.0"`を使用（`exact`は避ける）
   - SigV4認証やAWSサービス連携に使用
+- HTTPクライアント：
+  - URLSessionは使用できないため、AsyncHTTPClientを使用
+  - VaporのApplication.eventLoopGroupを共有することで、リソースを効率的に使用
+  - eventLoopGroupProviderは`.shared(eventLoopGroup)`を使用
 
 

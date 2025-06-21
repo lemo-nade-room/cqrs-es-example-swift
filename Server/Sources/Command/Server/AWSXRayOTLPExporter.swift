@@ -12,7 +12,9 @@ class AWSXRayOTLPExporter: SpanExporter {
     private let region: String
     private let httpClient: HTTPClient
 
-    init(endpoint: URL? = nil, region: String? = nil) async throws {
+    init(endpoint: URL? = nil, region: String? = nil, eventLoopGroup: (any EventLoopGroup)? = nil)
+        async throws
+    {
         // リージョンを環境変数またはパラメータから取得
         self.region =
             region ?? ProcessInfo.processInfo.environment["AWS_REGION"] ?? ProcessInfo.processInfo
@@ -26,15 +28,29 @@ class AWSXRayOTLPExporter: SpanExporter {
         }
 
         // HTTPClientの設定
-        self.httpClient = HTTPClient(
-            eventLoopGroupProvider: .singleton,
-            configuration: HTTPClient.Configuration(
-                timeout: HTTPClient.Configuration.Timeout(
-                    connect: .seconds(10),
-                    read: .seconds(30)
+        if let eventLoopGroup = eventLoopGroup {
+            // VaporのEventLoopGroupを使用
+            self.httpClient = HTTPClient(
+                eventLoopGroupProvider: .shared(eventLoopGroup),
+                configuration: HTTPClient.Configuration(
+                    timeout: HTTPClient.Configuration.Timeout(
+                        connect: .seconds(10),
+                        read: .seconds(30)
+                    )
                 )
             )
-        )
+        } else {
+            // フォールバックとしてsingletonを使用
+            self.httpClient = HTTPClient(
+                eventLoopGroupProvider: .singleton,
+                configuration: HTTPClient.Configuration(
+                    timeout: HTTPClient.Configuration.Timeout(
+                        connect: .seconds(10),
+                        read: .seconds(30)
+                    )
+                )
+            )
+        }
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval? = nil) -> SpanExporterResultCode {
