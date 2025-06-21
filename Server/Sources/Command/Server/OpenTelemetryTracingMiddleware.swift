@@ -39,7 +39,6 @@ struct OpenTelemetryTracingMiddleware: AsyncMiddleware {
             result[header.name] = header.value
         }
 
-        // Extract X-Ray trace context if available
         if let xRayContext = XRayPropagator.extractTraceContext(from: headers) {
             // Create a remote span context with the extracted trace ID and span ID
             let spanContext = SpanContext.createFromRemoteParent(

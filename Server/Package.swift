@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "https://github.com/swift-server/swift-openapi-vapor.git", from: "1.0.0"),
 
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift.git", from: "1.0.0"),
+        .package(url: "https://github.com/awslabs/aws-sdk-swift.git", from: "1.0.0"),
     ],
     targets: [
         // MARK: Command
@@ -30,6 +31,8 @@ let package = Package(
                 .product(name: "OpenAPIVapor", package: "swift-openapi-vapor"),
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift"),
                 .product(name: "OpenTelemetryProtocolExporterHTTP", package: "opentelemetry-swift"),
+                .product(name: "StdoutExporter", package: "opentelemetry-swift"),
+                .product(name: "AWSClientRuntime", package: "aws-sdk-swift"),
             ],
             path: "Sources/Command/Server",
             swiftSettings: swiftSettings,

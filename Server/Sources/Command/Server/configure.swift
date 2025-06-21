@@ -9,8 +9,8 @@ func configure(_ app: Application) async throws {
     // ================================
     // OpenTelemetry Configuration
     // ================================
-    let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4318"
-    OpenTelemetryConfiguration.configureOpenTelemetry(
+    let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    try await OpenTelemetryConfiguration.configureOpenTelemetry(
         serviceName: "command-server",
         otlpEndpoint: otlpEndpoint
     )

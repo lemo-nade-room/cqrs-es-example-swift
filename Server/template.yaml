@@ -33,10 +33,16 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref CommandServerFunctionImageUri
+      # Layerはコンテナイメージでは使用できないため、
+      # X-Rayへの送信はアプリケーション内のOpenTelemetryから直接行います
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
           AWS_XRAY_CONTEXT_MISSING: LOG_ERROR
+          # CloudWatch Application SignalsのOTLPエンドポイントを使用
+          OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
+          # X-RayのトレースIDフォーマットを使用
+          OTEL_PROPAGATORS: xray
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
@@ -57,6 +63,24 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref QueryServerFunctionImageUri
+      # Layerはコンテナイメージでは使用できないため、
+      # X-Rayへの送信はアプリケーション内のOpenTelemetryから直接行います
+      Environment:
+        Variables:
+          SERVER: !Ref ServerEnvironment
+          AWS_XRAY_CONTEXT_MISSING: LOG_ERROR
+          # CloudWatch Application SignalsのOTLPエンドポイントを使用
+          OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
+          # X-RayのトレースIDフォーマットを使用
+          OTEL_PROPAGATORS: xray
+      Policies:
+        - AWSXRayDaemonWriteAccess
+        - Statement:
+          - Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Resource: '*'
       Events:
         QueryHttpApi:
           Type: HttpApi

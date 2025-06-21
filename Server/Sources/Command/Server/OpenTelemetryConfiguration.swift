@@ -1,13 +1,13 @@
 import Foundation
 @preconcurrency import OpenTelemetryApi
-import OpenTelemetryProtocolExporterHttp
 import OpenTelemetrySdk
+import StdoutExporter
 import Vapor
 
 enum OpenTelemetryConfiguration {
     static func configureOpenTelemetry(
-        serviceName: String, otlpEndpoint: String = "http://localhost:4318"
-    ) {
+        serviceName: String, otlpEndpoint: String? = nil
+    ) async throws {
         let environmentName = (try? Environment.detect().name) ?? "development"
         let resource = Resource(attributes: [
             "service.name": AttributeValue.string(serviceName),
@@ -15,11 +15,37 @@ enum OpenTelemetryConfiguration {
             "deployment.environment": AttributeValue.string(environmentName),
         ])
 
-        let otlpHttpExporter = OtlpHttpTraceExporter(
-            endpoint: URL(string: "\(otlpEndpoint)/v1/traces")!
-        )
+        // Lambda環境かどうかを確認
+        let isLambda = ProcessInfo.processInfo.environment["AWS_LAMBDA_FUNCTION_NAME"] != nil
 
-        let spanProcessor = BatchSpanProcessor(spanExporter: otlpHttpExporter)
+        // エクスポーターの選択
+        let spanExporter: any SpanExporter
+
+        if let customEndpoint = otlpEndpoint {
+            if customEndpoint.starts(with: "https://xray.")
+                && customEndpoint.contains(".amazonaws.com")
+            {
+                // X-RayのOTLPエンドポイントが指定された場合
+                spanExporter = try await AWSXRayOTLPExporter(endpoint: URL(string: customEndpoint)!)
+            } else {
+                // カスタムエンドポイント（ローカルJaegerなど）
+                // 現時点では標準出力エクスポーターを使用
+                spanExporter = StdoutSpanExporter(
+                    isDebug: true
+                )
+            }
+        } else if isLambda {
+            // Lambda環境ではX-RayのOTLPエンドポイントを使用
+            spanExporter = try await AWSXRayOTLPExporter()
+        } else {
+            // ローカル開発環境のデフォルト
+            // 現時点では標準出力エクスポーターを使用
+            spanExporter = StdoutSpanExporter(
+                isDebug: true
+            )
+        }
+
+        let spanProcessor = BatchSpanProcessor(spanExporter: spanExporter)
 
         let tracerProvider = TracerProviderBuilder()
             .add(spanProcessor: spanProcessor)

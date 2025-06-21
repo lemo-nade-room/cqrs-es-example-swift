@@ -61,10 +61,15 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 
 - CommandServerにOpenTelemetry Swift（1.0.0以降）が統合されています
 - VaporのAsyncMiddlewareとしてOpenTelemetryTracingMiddlewareが実装されています
-- トレーシングデータはOTLP/HTTP経由でJaegerに送信されます
+- トレーシングデータはOTLP/HTTP経由でJaegerまたはAWS X-Rayに送信されます
 - ローカル開発環境では、Jaeger All-in-Oneをdocker composeで起動できます：
   - Jaeger UI: http://localhost:16686
   - OTLP HTTP Receiver: port 4318
 - 環境変数`OTEL_EXPORTER_OTLP_ENDPOINT`でエクスポート先を設定可能です
+- X-Rayトレースコンテキストの伝播をサポート（`x-amzn-trace-id`ヘッダー）
+- Lambda環境での動作：
+  - `AWS_LAMBDA_FUNCTION_NAME`環境変数で自動検出
+  - Lambda ExtensionがSigV4認証を処理するため、アプリケーションは`http://localhost:4318`に送信
+  - X-Rayエンドポイントへの転送はLambda Extensionが自動的に行う
 
 
