@@ -12,7 +12,7 @@ class AWSXRayOTLPExporter: SpanExporter {
     private let region: String
     private let httpClient: HTTPClient
 
-    init(endpoint: URL? = nil, region: String? = nil, eventLoopGroup: (any EventLoopGroup)? = nil)
+    init(endpoint: URL? = nil, region: String? = nil, eventLoopGroup: any EventLoopGroup)
         async throws
     {
         // リージョンを環境変数またはパラメータから取得
@@ -27,30 +27,16 @@ class AWSXRayOTLPExporter: SpanExporter {
             self.endpoint = URL(string: "https://xray.\(self.region).amazonaws.com/v1/traces")!
         }
 
-        // HTTPClientの設定
-        if let eventLoopGroup = eventLoopGroup {
-            // VaporのEventLoopGroupを使用
-            self.httpClient = HTTPClient(
-                eventLoopGroupProvider: .shared(eventLoopGroup),
-                configuration: HTTPClient.Configuration(
-                    timeout: HTTPClient.Configuration.Timeout(
-                        connect: .seconds(10),
-                        read: .seconds(30)
-                    )
+        // HTTPClientの設定 - VaporのEventLoopGroupを使用
+        self.httpClient = HTTPClient(
+            eventLoopGroupProvider: .shared(eventLoopGroup),
+            configuration: HTTPClient.Configuration(
+                timeout: HTTPClient.Configuration.Timeout(
+                    connect: .seconds(10),
+                    read: .seconds(30)
                 )
             )
-        } else {
-            // フォールバックとしてsingletonを使用
-            self.httpClient = HTTPClient(
-                eventLoopGroupProvider: .singleton,
-                configuration: HTTPClient.Configuration(
-                    timeout: HTTPClient.Configuration.Timeout(
-                        connect: .seconds(10),
-                        read: .seconds(30)
-                    )
-                )
-            )
-        }
+        )
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval? = nil) -> SpanExporterResultCode {
