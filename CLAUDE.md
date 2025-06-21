@@ -69,7 +69,20 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - X-Rayトレースコンテキストの伝播をサポート（`x-amzn-trace-id`ヘッダー）
 - Lambda環境での動作：
   - `AWS_LAMBDA_FUNCTION_NAME`環境変数で自動検出
-  - Lambda ExtensionがSigV4認証を処理するため、アプリケーションは`http://localhost:4318`に送信
-  - X-Rayエンドポイントへの転送はLambda Extensionが自動的に行う
+  - AWS Lambda Container Imagesの制約：
+    - Lambda LayersはContainer Imageタイプでは使用不可
+    - ADOT Lambda Layerが使えないため、アプリケーション内でOTLP送信を実装
+  - CloudWatch Application SignalsのOTLPエンドポイント（`https://xray.{region}.amazonaws.com`）を使用
+  - SigV4認証が必要（AWSXRayOTLPExporterで実装）
+
+### 依存関係の注意点
+
+- OpenTelemetry Swiftパッケージの構造：
+  - `OpenTelemetryProtocolExporterHTTP`プロダクトはあるが、内部モジュールは直接使用不可
+  - `StdoutExporter`プロダクトを使用してローカルデバッグが可能
+  - OTLP HTTPエクスポーターの実装には`OpenTelemetryProtocolExporterCommon`が必要だが、プロダクトとして公開されていない
+- AWS SDK for Swift（`aws-sdk-swift`）：
+  - バージョン指定は`from: "1.0.0"`を使用（`exact`は避ける）
+  - SigV4認証やAWSサービス連携に使用
 
 
