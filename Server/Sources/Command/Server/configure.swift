@@ -1,6 +1,3 @@
-import ClientRuntime
-import OTLPXRay
-import OTel
 import OpenAPIRuntime
 import OpenAPIVapor
 import Tracing

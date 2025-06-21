@@ -5,5 +5,6 @@
 ```shell
 docker compose up -d
 docker compose exec dev bash
-bash setup.sh
+
+
 ```
