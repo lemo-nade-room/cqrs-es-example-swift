@@ -1,6 +1,7 @@
 import AsyncHTTPClient
 import Foundation
 import NIOCore
+import NIOHTTP1
 import OpenTelemetryApi
 @preconcurrency import OpenTelemetrySdk
 import OpenTelemetryProtocolExporterCommon
@@ -56,7 +57,6 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         }
         
         print("[DEBUG] Lambda environment detected")
-        print("[DEBUG] Would export \(spans.count) spans to X-Ray endpoint: \(endpoint)")
         
         // スパンの詳細情報をログ
         for (index, span) in spans.enumerated().prefix(3) {
@@ -71,63 +71,91 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
             print("[DEBUG] ... and \(spans.count - 3) more spans")
         }
 
-        // 現時点では簡易的に成功を返す
-        // TODO: 非同期に変更するか、同期的にHTTPリクエストを送る実装を追加
+        // 早期にProtobufに変換してSendableな形式にする
+        do {
+            let resourceSpans = Opentelemetry_Proto_Trace_V1_ResourceSpans.with {
+                $0.scopeSpans = [Opentelemetry_Proto_Trace_V1_ScopeSpans.with {
+                    $0.spans = spans.map { span in
+                        span.toProto()
+                    }
+                }]
+            }
+
+            let exportRequest = Opentelemetry_Proto_Collector_Trace_V1_ExportTraceServiceRequest.with {
+                $0.resourceSpans = [resourceSpans]
+            }
+
+            // リクエストボディをシリアライズ
+            let body = try exportRequest.serializedData()
+            let spanCount = spans.count
+            
+            // バックグラウンドで非同期送信（Fire-and-forget）
+            Task.detached { [weak self] in
+                guard let self = self else { return }
+                
+                do {
+                    try await self.sendHTTPRequest(body: body)
+                    print("[DEBUG] Successfully exported \(spanCount) spans to X-Ray")
+                } catch {
+                    print("[DEBUG] Failed to export spans: \(error)")
+                }
+            }
+        } catch {
+            print("[DEBUG] Failed to serialize spans: \(error)")
+            return .failure
+        }
+        
+        // 即座に成功を返す（Fire-and-forget方式）
         return .success
     }
 
-    // TODO: 将来的に非同期エクスポートを実装
-    // private func exportSpansAsync(spans: [SpanData]) async throws {
-    //     // OTLPトレースデータを構築
-    //     let resourceSpans = Opentelemetry_Proto_Trace_V1_ResourceSpans.with {
-    //         $0.scopeSpans = [Opentelemetry_Proto_Trace_V1_ScopeSpans.with {
-    //             $0.spans = spans.map { span in
-    //                 span.toProto()
-    //             }
-    //         }]
-    //     }
-    //
-    //     let exportRequest = Opentelemetry_Proto_Collector_Trace_V1_ExportTraceServiceRequest.with {
-    //         $0.resourceSpans = [resourceSpans]
-    //     }
-    //
-    //     // リクエストボディをシリアライズ
-    //     let body = try exportRequest.serializedData()
-    //
-    //     // HTTPリクエストを構築
-    //     var request = HTTPClientRequest(url: endpoint.absoluteString)
-    //     request.method = .POST
-    //     request.headers.add(name: "Content-Type", value: "application/x-protobuf")
-    //     request.headers.add(name: "Content-Length", value: String(body.count))
-    //     request.body = .bytes(body)
-    //
-    //     // AWS認証情報を取得
-    //     guard let accessKeyId = ProcessInfo.processInfo.environment["AWS_ACCESS_KEY_ID"],
-    //           let secretAccessKey = ProcessInfo.processInfo.environment["AWS_SECRET_ACCESS_KEY"] else {
-    //         throw ExportError.missingCredentials
-    //     }
-    //
-    //     let sessionToken = ProcessInfo.processInfo.environment["AWS_SESSION_TOKEN"]
-    //
-    //     // SigV4署名を追加
-    //     let signer = AWSSigV4(
-    //         accessKeyId: accessKeyId,
-    //         secretAccessKey: secretAccessKey,
-    //         sessionToken: sessionToken,
-    //         region: region,
-    //         service: "xray"
-    //     )
-    //
-    //     try signer.sign(request: &request, payload: Data(body), date: Date())
-    //
-    //     // リクエストを送信
-    //     let response = try await httpClient.execute(request, timeout: .seconds(30))
-    //
-    //     // レスポンスを確認
-    //     guard (200...299).contains(response.status.code) else {
-    //         throw ExportError.httpError(statusCode: Int(response.status.code))
-    //     }
-    // }
+    private func sendHTTPRequest(body: Data) async throws {
+        print("[DEBUG] sendHTTPRequest called with \(body.count) bytes")
+
+        // HTTPリクエストを構築
+        var request = HTTPClientRequest(url: endpoint.absoluteString)
+        request.method = .POST
+        request.headers.add(name: "Content-Type", value: "application/x-protobuf")
+        request.headers.add(name: "Content-Length", value: String(body.count))
+
+        // AWS認証情報を取得
+        guard let accessKeyId = ProcessInfo.processInfo.environment["AWS_ACCESS_KEY_ID"],
+              let secretAccessKey = ProcessInfo.processInfo.environment["AWS_SECRET_ACCESS_KEY"] else {
+            print("[DEBUG] Missing AWS credentials")
+            throw ExportError.missingCredentials
+        }
+
+        let sessionToken = ProcessInfo.processInfo.environment["AWS_SESSION_TOKEN"]
+        print("[DEBUG] AWS credentials found, session token present: \(sessionToken != nil)")
+
+        // SigV4署名を追加
+        let signer = AWSSigV4(
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey,
+            sessionToken: sessionToken,
+            region: region,
+            service: "xray"
+        )
+
+        try signer.sign(request: &request, payload: Data(body), date: Date())
+        print("[DEBUG] SigV4 signature added to request")
+        
+        // リクエストボディを設定
+        request.body = .bytes(ByteBuffer(data: body))
+
+        // リクエストを送信
+        print("[DEBUG] Sending request to \(endpoint.absoluteString)")
+        let response = try await httpClient.execute(request, timeout: .seconds(30))
+        print("[DEBUG] Response status: \(response.status.code)")
+
+        // レスポンスを確認
+        guard (200...299).contains(response.status.code) else {
+            print("[DEBUG] HTTP error response: \(response.status.code)")
+            throw ExportError.httpError(statusCode: Int(response.status.code))
+        }
+        
+        print("[DEBUG] Successfully sent spans to X-Ray")
+    }
 
     func flush(explicitTimeout: TimeInterval? = nil) -> SpanExporterResultCode {
         return .success
