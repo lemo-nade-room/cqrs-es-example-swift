@@ -24,7 +24,7 @@ resource "aws_ecr_repository" "query_server_function_repository" {
 data "aws_iam_policy_document" "lambda_pull" {
   statement {
     principals {
-      type = "Service"
+      type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
     }
 
@@ -44,7 +44,7 @@ resource "aws_ecr_repository_policy" "query_server_function" {
   policy     = data.aws_iam_policy_document.lambda_pull.json
 }
 
-data aws_ecr_lifecycle_policy_document "cleanup_untagged" {
+data "aws_ecr_lifecycle_policy_document" "cleanup_untagged" {
   rule {
     priority    = 1
     description = "1日経過後のタグなしイメージは自動削除される"
@@ -82,11 +82,11 @@ resource "aws_codepipeline" "stage_deploy" {
     name = "Source"
 
     action {
-      name     = "Source"
-      category = "Source"
-      owner    = "AWS"
-      provider = "CodeStarSourceConnection"
-      version  = "1"
+      name             = "Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
@@ -102,16 +102,16 @@ resource "aws_codepipeline" "stage_deploy" {
     name = "Build"
 
     action {
-      name      = "CommandBuild"
-      category  = "Build"
-      owner     = "AWS"
-      provider  = "CodeBuild"
-      input_artifacts = ["SourceArtifact"]
+      name             = "CommandBuild"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["CommandBuildArtifact"]
-      version   = "1"
-      region    = var.region
-      run_order = 1
-      namespace = "CommandBuild"
+      version          = "1"
+      region           = var.region
+      run_order        = 1
+      namespace        = "CommandBuild"
 
       configuration = {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
@@ -133,16 +133,16 @@ resource "aws_codepipeline" "stage_deploy" {
     }
 
     action {
-      name      = "QueryBuild"
-      category  = "Build"
-      owner     = "AWS"
-      provider  = "CodeBuild"
-      input_artifacts = ["SourceArtifact"]
+      name             = "QueryBuild"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["QueryBuildArtifact"]
-      version   = "1"
-      region    = var.region
-      run_order = 1
-      namespace = "QueryBuild"
+      version          = "1"
+      region           = var.region
+      run_order        = 1
+      namespace        = "QueryBuild"
 
       configuration = {
         ProjectName = aws_codebuild_project.docker_build_and_push.name
@@ -164,15 +164,15 @@ resource "aws_codepipeline" "stage_deploy" {
     }
 
     action {
-      name      = "SAMPackage"
-      category  = "Build"
-      owner     = "AWS"
-      provider  = "CodeBuild"
-      input_artifacts = ["SourceArtifact"]
+      name             = "SAMPackage"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["SAMPackageArtifact"]
-      version   = "1"
-      region    = var.region
-      run_order = 1
+      version          = "1"
+      region           = var.region
+      run_order        = 1
 
       configuration = {
         ProjectName = aws_codebuild_project.sam_package.name
@@ -184,15 +184,15 @@ resource "aws_codepipeline" "stage_deploy" {
     name = "Deploy"
 
     action {
-      name      = "Deploy"
-      category  = "Deploy"
-      owner     = "AWS"
-      provider  = "CloudFormation"
-      version   = "1"
-      region    = var.region
-      role_arn  = aws_iam_role.super_role.arn
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CloudFormation"
+      version         = "1"
+      region          = var.region
+      role_arn        = aws_iam_role.super_role.arn
       input_artifacts = ["SAMPackageArtifact"]
-      run_order = 1
+      run_order       = 1
 
       configuration = {
         ActionMode   = "REPLACE_ON_FAILURE"
@@ -264,7 +264,7 @@ resource "aws_codebuild_project" "docker_build_and_push" {
   }
 
   cache {
-    type = "LOCAL"
+    type  = "LOCAL"
     modes = ["LOCAL_DOCKER_LAYER_CACHE"]
   }
 
@@ -310,8 +310,8 @@ resource "aws_iam_role_policy_attachment" "super_role_iam_full" {
 }
 data "aws_iam_policy_document" "super_role_trust" {
   statement {
-    sid    = "AWSServicePrincipals"
-    effect = "Allow"
+    sid     = "AWSServicePrincipals"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
 
     principals {
