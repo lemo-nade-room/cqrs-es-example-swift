@@ -49,6 +49,94 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - AWS SAM CLIも使用可能です。
 - TerraformやAWSのMCPを利用してドキュメントを閲覧可能です。
 
+### CI/CDパイプライン
+
+**注意: GitHub Actionsは使用されておらず、AWS CodePipelineがCDを担当しています。**
+
+#### パイプラインの流れ
+
+1. **Source Stage**: 
+   - GitHubの`main`ブランチを監視（CodeStar Connection経由）
+   - リポジトリ: `lemo-nade-room/cqrs-es-example-swift`
+   - pushされると自動的にパイプラインが起動
+
+2. **Build Stage** (並列実行):
+   - **CommandBuild**: 
+     - Dockerfile: `Server/Sources/Command/Dockerfile`
+     - DockerイメージをビルドしてECRにプッシュ
+   - **QueryBuild**: 
+     - Dockerfile: `Server/Sources/Query/Dockerfile`
+     - DockerイメージをビルドしてECRにプッシュ
+   - **SAMPackage**: 
+     - `sam package`を実行して`packaged.yaml`を生成
+
+3. **Deploy Stage**:
+   - CloudFormationを使用して`Stage`スタックをデプロイ
+   - Lambda関数のDockerイメージを更新
+   - API GatewayやIAMロールなども同時に更新
+
+#### インフラ構成 (`Server/AWS/`)
+
+- **ECRリポジトリ**:
+  - `command-server-function`: コマンドサーバー用
+  - `query-server-function`: クエリサーバー用
+  - タグなしイメージは1日後に自動削除
+
+- **CodeBuildプロジェクト**:
+  - `docker_build_and_push`: DockerイメージのビルドとECRへのプッシュ
+  - `sam_package`: SAMテンプレートのパッケージング
+  - ARM64アーキテクチャを使用
+
+- **IAMロール**:
+  - `super_role`: PowerUserAccess + IAMFullAccess権限
+  - CodeBuild, CodePipeline, CloudFormation, Lambdaが使用
+
+#### デプロイフロー
+
+```mermaid
+graph LR
+    A[GitHub main push] --> B[CodePipeline Source]
+    B --> C1[CommandBuild]
+    B --> C2[QueryBuild]
+    B --> C3[SAMPackage]
+    C1 --> D[ECR Push]
+    C2 --> E[ECR Push]
+    C3 --> F[packaged.yaml]
+    D --> G[CloudFormation Deploy]
+    E --> G
+    F --> G
+    G --> H[Lambda Functions Updated]
+```
+
+#### mainブランチへのpush時の動作
+
+**✅ 現在の実装はmainブランチにpushすると自動デプロイされます。**
+
+ただし、以下の点に注意：
+
+1. **ビルド時間**: Dockerイメージのビルドに約15分程度かかります
+2. **ビルド失敗の可能性**: 
+   - Swiftパッケージの依存関係解決エラー
+   - Dockerイメージサイズの問題
+3. **ロールバック**: CloudFormationの`REPLACE_ON_FAILURE`設定により、失敗時は自動ロールバック
+
+#### デプロイ前の確認事項
+
+- [ ] `swift build`が成功するか
+- [ ] `swift test`が成功するか
+- [ ] Dockerfileが正しくビルドできるか
+- [ ] SAMテンプレートが正しいか（`sam validate --lint`）
+
+#### 現在のステータス（2025年1月時点）
+
+- **ビルド状態**: ✅ 正常（警告1件: 未使用のaws-sdk-swift依存関係）
+- **テスト**: ✅ パス
+- **SAM検証**: ✅ 有効
+- **X-Rayトレース**: ⚠️ 送信部分はコメントアウト（SigV4認証は実装済み）
+- **mainブランチpush**: ✅ 安全（自動デプロイされます）
+
+詳細は`AWS_CD_STATUS.md`を参照してください。
+
 ### Docker
 
 - Docker Compose v2が利用可能です（`docker compose`コマンド）
