@@ -43,6 +43,8 @@ Resources:
           OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
           # X-RayのトレースIDフォーマットを使用
           OTEL_PROPAGATORS: xray
+          # VaporのLogLevelをDEBUGに設定
+          LOG_LEVEL: DEBUG
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
@@ -73,6 +75,8 @@ Resources:
           OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
           # X-RayのトレースIDフォーマットを使用
           OTEL_PROPAGATORS: xray
+          # VaporのLogLevelをDEBUGに設定
+          LOG_LEVEL: DEBUG
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
