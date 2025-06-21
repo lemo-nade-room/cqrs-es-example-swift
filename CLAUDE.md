@@ -73,7 +73,11 @@ Lambdaにデプロイされるように設計された、独立したコマン�
     - Lambda LayersはContainer Imageタイプでは使用不可
     - ADOT Lambda Layerが使えないため、アプリケーション内でOTLP送信を実装
   - CloudWatch Application SignalsのOTLPエンドポイント（`https://xray.{region}.amazonaws.com`）を使用
-  - SigV4認証が必要（AWSXRayOTLPExporterで実装）
+  - SigV4認証を実装済み：
+    - `AWSSigV4.swift`: 最小限のSigV4署名実装（swift-cryptoを使用）
+    - `AWSXRayOTLPExporter.swift`: X-Ray用のOTLPエクスポーター（SigV4認証付き）
+    - Lambda環境でのみトレースデータを送信（ローカルではスキップ）
+    - 現在は同期的な実装のため、実際のHTTP送信部分はコメントアウト中
 
 ### 依存関係の注意点
 
@@ -83,10 +87,16 @@ Lambdaにデプロイされるように設計された、独立したコマン�
   - OTLP HTTPエクスポーターの実装には`OpenTelemetryProtocolExporterCommon`が必要だが、プロダクトとして公開されていない
 - AWS SDK for Swift（`aws-sdk-swift`）：
   - バージョン指定は`from: "1.0.0"`を使用（`exact`は避ける）
-  - SigV4認証やAWSサービス連携に使用
+  - AWS SDKとsmithy-swiftの依存関係の問題：
+    - aws-sdk-swiftは内部的にsmithy-swiftを含むが、そのモジュールは公開されていない
+    - smithy-swiftを別途追加するとバージョン競合が発生
+    - SigV4認証のために独自実装が必要
 - HTTPクライアント：
   - URLSessionは使用できないため、AsyncHTTPClientを使用
   - VaporのApplication.eventLoopGroupを共有することで、リソースを効率的に使用
   - eventLoopGroupProviderは`.shared(eventLoopGroup)`を使用
+- swift-crypto：
+  - SigV4署名のためのSHA256およびHMAC実装に使用
+  - Appleの公式パッケージで安定している
 
 
