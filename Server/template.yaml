@@ -10,7 +10,7 @@ Globals:
     MemorySize: 128
     Tracing: Active
     LoggingConfig:
-      ApplicationLogLevel: INFO
+      ApplicationLogLevel: DEBUG
       LogFormat: JSON
 Parameters:
   CommandServerFunctionImageUri:

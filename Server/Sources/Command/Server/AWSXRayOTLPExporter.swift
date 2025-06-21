@@ -18,6 +18,10 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         self.region =
             region ?? ProcessInfo.processInfo.environment["AWS_REGION"] ?? ProcessInfo.processInfo
             .environment["AWS_DEFAULT_REGION"] ?? "us-east-1"
+        
+        print("[DEBUG] AWSXRayOTLPExporter init:")
+        print("[DEBUG]   Region: \(self.region)")
+        print("[DEBUG]   Endpoint parameter: \(endpoint?.absoluteString ?? "nil")")
 
         // エンドポイントURLを構築
         if let endpoint = endpoint {
@@ -25,6 +29,8 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         } else {
             self.endpoint = URL(string: "https://xray.\(self.region).amazonaws.com/v1/traces")!
         }
+        
+        print("[DEBUG]   Final endpoint: \(self.endpoint.absoluteString)")
 
         // HTTPClientの設定 - VaporのEventLoopGroupを使用
         self.httpClient = HTTPClient(
@@ -39,15 +45,34 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval? = nil) -> SpanExporterResultCode {
+        print("[DEBUG] AWSXRayOTLPExporter.export called")
+        print("[DEBUG]   Spans count: \(spans.count)")
+        print("[DEBUG]   AWS_EXECUTION_ENV: \(ProcessInfo.processInfo.environment["AWS_EXECUTION_ENV"] ?? "not set")")
+        
         // Lambda環境でのみ実際の送信を行う
         guard ProcessInfo.processInfo.environment["AWS_EXECUTION_ENV"]?.starts(with: "AWS_Lambda") == true else {
-            print("Not in Lambda environment, skipping X-Ray export")
+            print("[DEBUG] Not in Lambda environment, skipping X-Ray export")
             return .success
+        }
+        
+        print("[DEBUG] Lambda environment detected")
+        print("[DEBUG] Would export \(spans.count) spans to X-Ray endpoint: \(endpoint)")
+        
+        // スパンの詳細情報をログ
+        for (index, span) in spans.enumerated().prefix(3) {
+            print("[DEBUG] Span \(index):")
+            print("[DEBUG]   Name: \(span.name)")
+            print("[DEBUG]   TraceId: \(span.traceId.hexString)")
+            print("[DEBUG]   SpanId: \(span.spanId.hexString)")
+            print("[DEBUG]   Kind: \(span.kind)")
+            print("[DEBUG]   Status: \(span.status)")
+        }
+        if spans.count > 3 {
+            print("[DEBUG] ... and \(spans.count - 3) more spans")
         }
 
         // 現時点では簡易的に成功を返す
         // TODO: 非同期に変更するか、同期的にHTTPリクエストを送る実装を追加
-        print("Would export \(spans.count) spans to X-Ray endpoint: \(endpoint)")
         return .success
     }
 

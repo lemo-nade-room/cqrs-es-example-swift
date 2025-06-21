@@ -22,6 +22,11 @@ struct OpenTelemetryTracingMiddleware: AsyncMiddleware {
         let method = request.method.rawValue
         let path = request.url.path
         let spanName = "\(method) \(path)"
+        
+        request.logger.debug("[DEBUG] OpenTelemetryTracingMiddleware processing request")
+        request.logger.debug("[DEBUG]   Method: \(method)")
+        request.logger.debug("[DEBUG]   Path: \(path)")
+        request.logger.debug("[DEBUG]   Span name: \(spanName)")
 
         let spanBuilder = tracerWrapper.tracer.spanBuilder(spanName: spanName)
             .setSpanKind(spanKind: .server)
@@ -38,8 +43,17 @@ struct OpenTelemetryTracingMiddleware: AsyncMiddleware {
         let headers = request.headers.reduce(into: [String: String]()) { result, header in
             result[header.name] = header.value
         }
+        
+        request.logger.debug("[DEBUG] Checking for X-Ray trace context")
+        if let traceHeader = headers["x-amzn-trace-id"] {
+            request.logger.debug("[DEBUG]   X-Ray trace header found: \(traceHeader)")
+        }
 
         if let xRayContext = XRayPropagator.extractTraceContext(from: headers) {
+            request.logger.debug("[DEBUG]   Extracted trace context:")
+            request.logger.debug("[DEBUG]     TraceId: \(xRayContext.traceId.hexString)")
+            request.logger.debug("[DEBUG]     SpanId: \(xRayContext.spanId.hexString)")
+            
             // Create a remote span context with the extracted trace ID and span ID
             let spanContext = SpanContext.createFromRemoteParent(
                 traceId: xRayContext.traceId,
@@ -49,11 +63,15 @@ struct OpenTelemetryTracingMiddleware: AsyncMiddleware {
             )
 
             spanBuilder.setParent(spanContext)
+        } else {
+            request.logger.debug("[DEBUG]   No X-Ray trace context found")
         }
 
         let span = spanBuilder.startSpan()
+        request.logger.debug("[DEBUG] Span started: \(span.context.spanId.hexString)")
 
         defer {
+            request.logger.debug("[DEBUG] Ending span: \(span.context.spanId.hexString)")
             span.end()
         }
 
@@ -61,11 +79,14 @@ struct OpenTelemetryTracingMiddleware: AsyncMiddleware {
             let response = try await next.respond(to: request)
 
             span.setAttribute(key: "http.status_code", value: Int(response.status.code))
+            request.logger.debug("[DEBUG] Response status: \(response.status.code)")
 
             if response.status.code >= 400 {
                 span.status = Status.error(description: "HTTP \(response.status.code)")
+                request.logger.debug("[DEBUG] Span marked as error")
             } else {
                 span.status = Status.ok
+                request.logger.debug("[DEBUG] Span marked as ok")
             }
 
             return response
