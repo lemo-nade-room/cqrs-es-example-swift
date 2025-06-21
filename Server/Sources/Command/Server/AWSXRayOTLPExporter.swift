@@ -227,7 +227,7 @@ extension SpanData {
             $0.endTimeUnixNano = UInt64(self.endTime.timeIntervalSince1970 * 1_000_000_000)
             $0.status = Opentelemetry_Proto_Trace_V1_Status.with {
                 $0.code = self.status.toProto()
-                if case let .error(description) = self.status {
+                if case .error(let description) = self.status {
                     $0.message = description
                 }
             }
@@ -269,37 +269,37 @@ extension AttributeValue {
     func toProto() -> Opentelemetry_Proto_Common_V1_AnyValue {
         return Opentelemetry_Proto_Common_V1_AnyValue.with {
             switch self {
-            case let .string(value):
+            case .string(let value):
                 $0.stringValue = value
-            case let .int(value):
+            case .int(let value):
                 $0.intValue = Int64(value)
-            case let .double(value):
+            case .double(let value):
                 $0.doubleValue = value
-            case let .bool(value):
+            case .bool(let value):
                 $0.boolValue = value
-            case let .array(values):
+            case .array(let values):
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.values.map { $0.toProto() }
                 }
-            case let .set(values):
+            case .set(let values):
                 // AttributeSetのlabelsを配列に変換
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.labels.values.map { $0.toProto() }
                 }
             // Deprecated cases
-            case let .stringArray(values):
+            case .stringArray(let values):
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.map { AttributeValue.string($0).toProto() }
                 }
-            case let .boolArray(values):
+            case .boolArray(let values):
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.map { AttributeValue.bool($0).toProto() }
                 }
-            case let .intArray(values):
+            case .intArray(let values):
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.map { AttributeValue.int($0).toProto() }
                 }
-            case let .doubleArray(values):
+            case .doubleArray(let values):
                 $0.arrayValue = Opentelemetry_Proto_Common_V1_ArrayValue.with {
                     $0.values = values.map { AttributeValue.double($0).toProto() }
                 }

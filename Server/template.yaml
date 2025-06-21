@@ -104,3 +104,48 @@ Resources:
             ApiId: !Ref ServerHttpApi
             Method: ANY
             Path: /query/{proxy+}
+
+  # X-Ray Trace Segment Destination設定用のカスタムリソース
+  UpdateTraceDestinationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      InlineCode: |
+        import json
+        import boto3
+        import cfnresponse
+        
+        xray = boto3.client('xray')
+        
+        def handler(event, context):
+            try:
+                request_type = event['RequestType']
+                
+                if request_type in ['Create', 'Update']:
+                    # CloudWatch LogsをトレースのデスティネーションとしてUpdateする
+                    response = xray.update_trace_segment_destination(
+                        TelemetryType='OTEL',
+                        State='Active'
+                    )
+                    print(f"UpdateTraceSegmentDestination response: {response}")
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Message': 'Trace destination updated'})
+                else:
+                    # Delete時は何もしない
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Message': 'Delete completed'})
+            except Exception as e:
+                print(f"Error: {str(e)}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 60
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - xray:UpdateTraceSegmentDestination
+              Resource: '*'
+
+  # カスタムリソースを実行
+  UpdateTraceDestination:
+    Type: Custom::UpdateTraceDestination
+    Properties:
+      ServiceToken: !GetAtt UpdateTraceDestinationFunction.Arn

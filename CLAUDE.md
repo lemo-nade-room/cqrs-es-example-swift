@@ -49,6 +49,12 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - AWS SAM CLIも使用可能です。
 - TerraformやAWSのMCPを利用してドキュメントを閲覧可能です。
 
+### X-Ray OTLP APIの要件
+
+- AWS X-RayのOTLP APIを使用する場合、CloudWatch LogsをトレースデスティネーションとしてUpdateTraceSegmentDestination APIで有効化する必要があります
+- SAMテンプレートでカスタムリソースとしてこの設定を管理しています
+- エラー例: `The OTLP API is supported with CloudWatch Logs as a Trace Segment Destination.` (400 InvalidRequestException)
+
 ### CI/CDパイプライン
 
 **注意: GitHub Actionsは使用されておらず、AWS CodePipelineがCDを担当しています。**
@@ -280,6 +286,17 @@ graph LR
   ```swift
   print("✅ Exported \(spanCount) spans to X-Ray")  // 成功時
   print("❌ X-Ray export failed: \(error)")          // 失敗時
+  ```
+
+### Swift Formatの注意点
+
+- `case let`パターンは使用せず、`case .enum(let value)`の形式を使用する
+  ```swift
+  // ❌ Bad
+  case let .string(value):
+  
+  // ✅ Good  
+  case .string(let value):
   ```
 
 
