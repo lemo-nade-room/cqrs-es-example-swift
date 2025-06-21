@@ -129,10 +129,10 @@ graph LR
 
 #### 現在のステータス（2025年1月時点）
 
-- **ビルド状態**: ✅ 正常（警告1件: 未使用のaws-sdk-swift依存関係）
+- **ビルド状態**: ✅ 正常
 - **テスト**: ✅ パス
 - **SAM検証**: ✅ 有効
-- **X-Rayトレース**: ⚠️ 送信部分はコメントアウト（SigV4認証は実装済み）
+- **X-Rayトレース**: ✅ 実装完了（OTLP/HTTP + SigV4認証）
 - **mainブランチpush**: ✅ 安全（自動デプロイされます）
 
 詳細は`AWS_CD_STATUS.md`を参照してください。
@@ -160,31 +160,40 @@ graph LR
   - AWS Lambda Container Imagesの制約：
     - Lambda LayersはContainer Imageタイプでは使用不可
     - ADOT Lambda Layerが使えないため、アプリケーション内でOTLP送信を実装
-  - CloudWatch Application SignalsのOTLPエンドポイント（`https://xray.{region}.amazonaws.com`）を使用
+  - CloudWatch Application SignalsのOTLPエンドポイント（`https://xray.{region}.amazonaws.com/v1/traces`）を使用
   - SigV4認証を実装済み：
     - `AWSSigV4.swift`: 最小限のSigV4署名実装（swift-cryptoを使用）
-    - `AWSXRayOTLPExporter.swift`: X-Ray用のOTLPエクスポーター（SigV4認証付き）
+    - `AWSXRayOTLPExporter.swift`: X-Ray用のOTLPエクスポーター（SigV4認証付き、AsyncHTTPClient使用）
     - Lambda環境でのみトレースデータを送信（ローカルではスキップ）
-    - 現在は同期的な実装のため、実際のHTTP送信部分はコメントアウト中
+    - Fire-and-forget方式の非同期送信で、レスポンスを待たずに即座に成功を返す
+    - Sendable制約に対応するため、早期にProtobufシリアライズを実行
 
 ### 依存関係の注意点
 
 - OpenTelemetry Swiftパッケージの構造：
-  - `OpenTelemetryProtocolExporterHTTP`プロダクトはあるが、内部モジュールは直接使用不可
+  - `OpenTelemetryProtocolExporterHTTP`プロダクトは実験的で、HTTPエクスポーターの実装が不完全
   - `StdoutExporter`プロダクトを使用してローカルデバッグが可能
-  - OTLP HTTPエクスポーターの実装には`OpenTelemetryProtocolExporterCommon`が必要だが、プロダクトとして公開されていない
+  - `OpenTelemetryProtocolExporterCommon`にProtobuf定義があり、独自のHTTPエクスポーター実装に使用
+  - swift-otel（別プロジェクト）も検討したが、HTTPエクスポーターがないため現時点では採用せず
 - AWS SDK for Swift（`aws-sdk-swift`）：
-  - バージョン指定は`from: "1.0.0"`を使用（`exact`は避ける）
-  - AWS SDKとsmithy-swiftの依存関係の問題：
-    - aws-sdk-swiftは内部的にsmithy-swiftを含むが、そのモジュールは公開されていない
-    - smithy-swiftを別途追加するとバージョン競合が発生
-    - SigV4認証のために独自実装が必要
+  - smithy-swiftとの依存関係競合のため使用を断念
+  - SigV4認証は独自実装（`AWSSigV4.swift`）
 - HTTPクライアント：
-  - URLSessionは使用できないため、AsyncHTTPClientを使用
+  - Lambda環境ではURLSessionが使用できないため、AsyncHTTPClientを使用
   - VaporのApplication.eventLoopGroupを共有することで、リソースを効率的に使用
   - eventLoopGroupProviderは`.shared(eventLoopGroup)`を使用
 - swift-crypto：
   - SigV4署名のためのSHA256およびHMAC実装に使用
   - Appleの公式パッケージで安定している
+- Swift 6の並行性：
+  - `SpanData`などがSendableでないため、Task.detachedでの送信時は早期にシリアライズ
+  - `@unchecked Sendable`と`@preconcurrency`を使用して移行対応
+
+### Lambda関数の設定
+
+- **タイムアウト**: 10秒（デフォルト3秒ではコールドスタート時にタイムアウトする）
+- **メモリ**: 128MB（デフォルト）
+- **アーキテクチャ**: ARM64
+- **ログレベル**: DEBUG（LOG_LEVEL環境変数で制御）
 
 
