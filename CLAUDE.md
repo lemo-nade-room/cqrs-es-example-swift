@@ -234,21 +234,52 @@ graph LR
 - エラー例: `'Host' or ':authority' must be a 'SignedHeader' in the AWS Authorization.` (403 InvalidSignatureException)
 
 ### デバッグログのベストプラクティス
-- 絵文字を使って視覚的に分かりやすくする：
-  - ✅ 成功
-  - ❌ エラー
-  - 🚀 開始
-  - 🔚 終了
-  - 📝 情報
-  - ⚠️ 警告
-- セクションの開始と終了を明確にする：
+
+#### 絵文字の使い方
+効果的に絵文字を使って視覚的に分かりやすくする：
+- 🚀 起動・開始
+- ✅ 成功
+- ❌ エラー・失敗
+- ⚠️ 警告
+- 🔧 設定・構成
+- 📦 パッケージ・バッチ処理
+- 📡 ネットワーク通信・エンドポイント
+- 🔗 接続・リンク
+- 📍 場所・ロケーション
+- 🏷️ ラベル・タグ
+- 🌐 環境・グローバル
+- 🏥 ヘルスチェック
+- 🎉 完了・成功
+- 🧩 コンポーネント・モジュール
+- 🏗️ ビルド・初期化
+- 🔐 認証・セキュリティ
+
+#### ログレベルとプレフィックス
+- `logger.debug()`使用時は`[DEBUG]`プレフィックス不要（冗長になる）
+- `print()`使用時のみ必要に応じてプレフィックスを使用
+
+#### ログの簡潔性
+- 初期化時：1行で要約（例：`🏗️ Initializing AWSXRayOTLPExporter | Region: ap-northeast-1`）
+- 設定完了時：1行で要約（例：`✅ OpenTelemetry ready with service: Stage-CommandServerFunction`）
+- エラー時のみ詳細を出力
+
+#### 情報の集約
+- 複数の関連情報は1行にまとめる
+  ```swift
+  app.logger.debug("🌐 Environment: \(app.environment) | Lambda: ✅ | Function: \(functionName)")
+  app.logger.debug("📍 Region: \(region) | Memory: \(memorySize)MB")
   ```
-  [DEBUG] ========== SectionName START ==========
-  [DEBUG] ========== SectionName END ==========
+
+#### セクション区切りの最小化
+- 重要なセクションのみ区切りを使用
+- 通常の処理フローでは区切り不要
+- エラー解析が必要な部分でのみ詳細ログ
+
+#### Fire-and-forgetパターン
+- 非同期タスクの結果は簡潔に
+  ```swift
+  print("✅ Exported \(spanCount) spans to X-Ray")  // 成功時
+  print("❌ X-Ray export failed: \(error)")          // 失敗時
   ```
-- 重要な情報は構造化して出力：
-  - 環境変数はカテゴリ別にグループ化
-  - 認証情報は部分的にマスク（例：最初の10文字のみ表示）
-- Fire-and-forgetタスクの開始と完了を明確にログ出力
 
 
