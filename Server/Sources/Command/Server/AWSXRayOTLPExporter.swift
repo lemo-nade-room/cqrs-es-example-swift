@@ -26,7 +26,12 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
 
         // エンドポイントURLを構築
         if let endpoint = endpoint {
-            self.endpoint = endpoint
+            // カスタムエンドポイントが/v1/tracesで終わっていない場合は追加
+            if !endpoint.absoluteString.hasSuffix("/v1/traces") {
+                self.endpoint = endpoint.appendingPathComponent("v1/traces")
+            } else {
+                self.endpoint = endpoint
+            }
         } else {
             self.endpoint = URL(string: "https://xray.\(self.region).amazonaws.com/v1/traces")!
         }
