@@ -1,9 +1,6 @@
-@preconcurrency import AWSClientRuntime
 import AsyncHTTPClient
-import ClientRuntime
 import Foundation
 import NIOCore
-import NIOHTTP1
 import OpenTelemetrySdk
 
 /// AWS X-Ray OTLP Exporter with SigV4 authentication

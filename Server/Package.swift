@@ -33,7 +33,6 @@ let package = Package(
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift"),
                 .product(name: "OpenTelemetryProtocolExporterHTTP", package: "opentelemetry-swift"),
                 .product(name: "StdoutExporter", package: "opentelemetry-swift"),
-                .product(name: "AWSClientRuntime", package: "aws-sdk-swift"),
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ],
             path: "Sources/Command/Server",
