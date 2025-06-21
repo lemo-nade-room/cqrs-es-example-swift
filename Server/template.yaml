@@ -148,23 +148,51 @@ Resources:
                 print("send(..) failed executing http.request(..):", e)
         
         def handler(event, context):
-            xray = boto3.client('xray')
+            print(f"Received event: {json.dumps(event)}")
             
             try:
                 request_type = event['RequestType']
                 
                 if request_type in ['Create', 'Update']:
+                    # X-Rayクライアントを作成（リージョンを明示的に指定）
+                    import os
+                    region = os.environ.get('AWS_REGION', 'ap-northeast-1')
+                    xray = boto3.client('xray', region_name=region)
+                    print(f"Using region: {region}")
+                    
+                    # 現在の設定を確認
+                    try:
+                        current = xray.get_trace_segment_destination()
+                        print(f"Current trace destination: {current}")
+                    except Exception as e:
+                        print(f"Failed to get current destination: {e}")
+                    
                     # CloudWatch LogsをトレースのデスティネーションとしてUpdateする
                     response = xray.update_trace_segment_destination(
                         Destination='CloudWatchLogs'
                     )
                     print(f"UpdateTraceSegmentDestination response: {response}")
-                    send(event, context, SUCCESS, {'Message': 'Trace destination updated'})
+                    
+                    # レスポンスのステータスを確認
+                    if response.get('Status') in ['PENDING', 'ACTIVE']:
+                        send(event, context, SUCCESS, {
+                            'Message': 'Trace destination updated',
+                            'Destination': response.get('Destination'),
+                            'Status': response.get('Status')
+                        })
+                    else:
+                        send(event, context, FAILED, {
+                            'Error': f"Unexpected status: {response.get('Status')}"
+                        })
                 else:
                     # Delete時は何もしない
+                    print(f"Handling {request_type} request - no action needed")
                     send(event, context, SUCCESS, {'Message': 'Delete completed'})
             except Exception as e:
-                print(f"Error: {str(e)}")
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"Error occurred: {str(e)}")
+                print(f"Stack trace: {error_details}")
                 send(event, context, FAILED, {'Error': str(e)})
       Runtime: python3.12
       Handler: index.handler
