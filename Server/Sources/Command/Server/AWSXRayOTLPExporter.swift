@@ -1,17 +1,16 @@
 @preconcurrency import AWSClientRuntime
+import AsyncHTTPClient
 import ClientRuntime
 import Foundation
+import NIOCore
+import NIOHTTP1
 import OpenTelemetrySdk
-
-#if canImport(FoundationNetworking)
-    import FoundationNetworking
-#endif
 
 /// AWS X-Ray OTLP Exporter with SigV4 authentication
 class AWSXRayOTLPExporter: SpanExporter {
     private let endpoint: URL
     private let region: String
-    private let session: URLSession
+    private let httpClient: HTTPClient
 
     init(endpoint: URL? = nil, region: String? = nil) async throws {
         // リージョンを環境変数またはパラメータから取得
@@ -26,10 +25,16 @@ class AWSXRayOTLPExporter: SpanExporter {
             self.endpoint = URL(string: "https://xray.\(self.region).amazonaws.com/v1/traces")!
         }
 
-        // URLSessionの設定
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        self.session = URLSession(configuration: config)
+        // HTTPClientの設定
+        self.httpClient = HTTPClient(
+            eventLoopGroupProvider: .singleton,
+            configuration: HTTPClient.Configuration(
+                timeout: HTTPClient.Configuration.Timeout(
+                    connect: .seconds(10),
+                    read: .seconds(30)
+                )
+            )
+        )
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval? = nil) -> SpanExporterResultCode {
@@ -43,6 +48,7 @@ class AWSXRayOTLPExporter: SpanExporter {
     }
 
     func shutdown(explicitTimeout: TimeInterval? = nil) {
-        // クリーンアップ処理
+        // HTTPClientをシャットダウン
+        try? httpClient.syncShutdown()
     }
 }
