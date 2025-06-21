@@ -1,0 +1,18 @@
+services:
+  dev:
+    image: lemonaderoom/claude-code:latest
+    environment:
+      GH_TOKEN: ${GH_TOKEN}
+    ports:
+      - '127.0.0.1:8080:8080'
+    tty: true
+    stdin_open: true
+    volumes:
+      - '.:/claude/workspace'
+      - '${HOME}/.claude:/claude/.claude'
+      - '${HOME}/.claude.json:/claude/.claude.json'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - 'cqrs_es_example_swift_build_cache:/claude/workspace/Server/.build'
+
+volumes:
+  cqrs_es_example_swift_build_cache:

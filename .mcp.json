@@ -1,0 +1,47 @@
+{
+	"mcpServers": {
+		"playwright": {
+			"command": "bunx",
+			"args": [
+				"@playwright/mcp@latest",
+				"--browser",
+				"chromium",
+				"--user-data-dir",
+				"./.mcp-profile",
+				"--headless",
+				"--isolated",
+				"--no-sandbox"
+			]
+		},
+		"terraform": {
+			"command": "docker",
+			"args": ["run", "-i", "--rm", "hashicorp/terraform-mcp-server"]
+		},
+		"awslabs.aws-documentation-mcp-server": {
+			"command": "uvx",
+			"args": ["awslabs.aws-documentation-mcp-server@latest"],
+			"env": {
+				"FASTMCP_LOG_LEVEL": "ERROR",
+				"AWS_DOCUMENTATION_PARTITION": "aws"
+			}
+		},
+		"mcp-svelte-docs": {
+			"command": "bunx",
+			"args": ["-y", "mcp-svelte-docs"]
+		},
+		"github": {
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"-e",
+				"GITHUB_PERSONAL_ACCESS_TOKEN",
+				"ghcr.io/github/github-mcp-server"
+			],
+			"env": {
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GH_TOKEN}"
+			}
+		}
+	}
+}
