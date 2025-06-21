@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      # Jaeger UI - ブラウザでトレースを確認
+      - "16686:16686"
+      # OTLP HTTP receiver - X-Ray互換のHTTP/Protobufンドポイント
+      - "4318:4318"
