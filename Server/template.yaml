@@ -6,7 +6,7 @@ Globals:
   Function:
     Architectures:
       - arm64
-    Timeout: 3
+    Timeout: 10
     MemorySize: 128
     Tracing: Active
     LoggingConfig:
