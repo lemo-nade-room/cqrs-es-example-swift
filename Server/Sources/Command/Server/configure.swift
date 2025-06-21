@@ -1,9 +1,22 @@
 import OpenAPIRuntime
 import OpenAPIVapor
+import OpenTelemetryApi
+import OpenTelemetrySdk
 import Tracing
 import Vapor
 
 func configure(_ app: Application) async throws {
+    // ================================
+    // OpenTelemetry Configuration
+    // ================================
+    let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4318"
+    OpenTelemetryConfiguration.configureOpenTelemetry(
+        serviceName: "command-server",
+        otlpEndpoint: otlpEndpoint
+    )
+    
+    let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")
+    
     // ================================
     // HTTP Server Configuration
     // ================================
@@ -17,9 +30,14 @@ func configure(_ app: Application) async throws {
     app.get { _ in "It works!" }
 
     // ================================
+    // Middleware Configuration
+    // ================================
+    app.middleware.use(OpenTelemetryTracingMiddleware(tracer: tracer))
+    app.middleware.use(VaporRequestMiddleware())
+    
+    // ================================
     // OpenAPI Vapor Transport
     // ================================
-    app.middleware.use(VaporRequestMiddleware())
     let transport = VaporTransport(routesBuilder: app)
     let service = Service(logger: app.logger)
     let serverURL: URL =
