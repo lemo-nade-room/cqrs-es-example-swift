@@ -3,6 +3,27 @@ provider "aws" {
 }
 
 # ================================
+# Application Signals
+# ================================
+# AWS CC プロバイダーを使用してApplication Signalsを有効化
+# これにより自動的にAWSServiceRoleForCloudWatchApplicationSignalsサービスリンクロールが作成されます
+terraform {
+  required_providers {
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = ">= 0.9.0"
+    }
+  }
+}
+
+provider "awscc" {
+  region = var.region
+}
+
+# Application Signals Discovery - アカウントでApplication Signalsを有効化
+resource "awscc_applicationsignals_discovery" "this" {}
+
+# ================================
 # Elastic Container Registry
 # ================================
 resource "aws_ecr_repository" "command_server_function_repository" {

@@ -8,10 +8,10 @@ enum Entrypoint {
     static func main() async throws {
         print("[DEBUG] Starting entrypoint.main()")
         print("[DEBUG] Process arguments: \(CommandLine.arguments)")
-        
+
         var env = try Environment.detect()
         print("[DEBUG] Detected environment: \(env.name)")
-        
+
         try LoggingSystem.bootstrap(from: &env)
         print("[DEBUG] LoggingSystem bootstrapped")
 
@@ -31,7 +31,7 @@ enum Entrypoint {
             print("[DEBUG] Calling configure()")
             try await configure(app)
             print("[DEBUG] configure() completed")
-            
+
             print("[DEBUG] Executing application")
             try await app.execute()
             print("[DEBUG] Application execution completed")

@@ -12,3 +12,8 @@ output "query_server_function_image_uri" {
   value       = aws_ecr_repository.query_server_function_repository.repository_url
   description = "Query ServerのLambda Docker Imageを保管するECRリポジトリのImage URI"
 }
+
+output "application_signals_enabled" {
+  value       = awscc_applicationsignals_discovery.this.id
+  description = "Application Signals Discovery resource ID"
+}

@@ -45,6 +45,11 @@ Resources:
           OTEL_PROPAGATORS: xray
           # VaporのLogLevelをDEBUGに設定
           LOG_LEVEL: DEBUG
+          # Application Signals用の設定
+          OTEL_METRICS_EXPORTER: none
+          OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+          OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
+          OTEL_RESOURCE_ATTRIBUTES: service.name=CommandServer
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
@@ -52,6 +57,7 @@ Resources:
             Action:
               - xray:PutTraceSegments
               - xray:PutTelemetryRecords
+              - cloudwatch:PutMetricData
             Resource: '*'
       Events:
         CommandHttpApi:
@@ -77,6 +83,11 @@ Resources:
           OTEL_PROPAGATORS: xray
           # VaporのLogLevelをDEBUGに設定
           LOG_LEVEL: DEBUG
+          # Application Signals用の設定
+          OTEL_METRICS_EXPORTER: none
+          OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+          OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
+          OTEL_RESOURCE_ATTRIBUTES: service.name=QueryServer
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
@@ -84,6 +95,7 @@ Resources:
             Action:
               - xray:PutTraceSegments
               - xray:PutTelemetryRecords
+              - cloudwatch:PutMetricData
             Resource: '*'
       Events:
         QueryHttpApi:

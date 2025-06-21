@@ -64,10 +64,9 @@ struct AWSSigV4 {
 
         // Authorizationヘッダーを作成
         let signedHeaders = getSignedHeaders(from: request.headers)
-        let authorizationHeader = "AWS4-HMAC-SHA256 " +
-            "Credential=\(accessKeyId)/\(credentialScope), " +
-            "SignedHeaders=\(signedHeaders), " +
-            "Signature=\(signature)"
+        let authorizationHeader =
+            "AWS4-HMAC-SHA256 " + "Credential=\(accessKeyId)/\(credentialScope), "
+            + "SignedHeaders=\(signedHeaders), " + "Signature=\(signature)"
 
         request.headers.add(name: "Authorization", value: authorizationHeader)
     }
@@ -80,19 +79,22 @@ struct AWSSigV4 {
     ) -> String {
         // URIパスを正規化
         let path = URL(string: uri)?.path ?? "/"
-        let canonicalURI = path.addingPercentEncoding(
-            withAllowedCharacters: .urlPathAllowed
-        )?.replacingOccurrences(of: "%2F", with: "/") ?? "/"
+        let canonicalURI =
+            path.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed
+            )?.replacingOccurrences(of: "%2F", with: "/") ?? "/"
 
         // クエリ文字列を正規化
-        let canonicalQueryString = URL(string: uri)?.query?
+        let canonicalQueryString =
+            URL(string: uri)?.query?
             .split(separator: "&")
             .map { String($0) }
             .sorted()
             .joined(separator: "&") ?? ""
 
         // ヘッダーを正規化
-        let canonicalHeaders = headers
+        let canonicalHeaders =
+            headers
             .map {
                 (
                     name: $0.name.lowercased(),
@@ -117,7 +119,8 @@ struct AWSSigV4 {
     }
 
     private func getSignedHeaders(from headers: HTTPHeaders) -> String {
-        return headers
+        return
+            headers
             .map { $0.name.lowercased() }
             .sorted()
             .joined(separator: ";")

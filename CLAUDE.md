@@ -196,4 +196,49 @@ graph LR
 - **アーキテクチャ**: ARM64
 - **ログレベル**: DEBUG（LOG_LEVEL環境変数で制御）
 
+## OpenTelemetry実装の注意点
+
+### Application Signalsの有効化
+- CloudWatch Application Signalsの有効化にはAWS CC (Cloud Control) プロバイダーを使用
+- `awscc_applicationsignals_discovery`リソースで自動的にサービスリンクロールが作成される
+- CloudFormationの混在を避けるため、Terraformのみで実装可能
+
+### リソース属性の設定
+- Application Signalsでトレースを表示するには、`service.name`などのリソース属性が必須
+- AWSXRayOTLPExporterで`ResourceSpans`にリソース情報を含める必要がある
+- 環境変数`OTEL_RESOURCE_ATTRIBUTES`から属性を読み込む実装が重要
+
+### AttributeValueのProtobuf変換
+- OpenTelemetryのAttributeValue型をProtobufに変換する際の注意点：
+  - `.array(AttributeArray)`の場合は`.values`プロパティにアクセス
+  - `.set(AttributeSet)`の場合は`.labels.values`で値の配列を取得
+  - deprecated caseも含めてすべてのケースを処理する必要がある
+
+### HTTPClientResponseのボディ読み取り
+- AsyncHTTPClientのレスポンスボディは非同期で読み取る必要がある：
+  ```swift
+  let bodyData = try await response.body.collect(upTo: 1024 * 1024)
+  let responseString = bodyData.getString(at: 0, length: bodyData.readableBytes)
+  ```
+- `response.body`は`HTTPClientResponse.Body`型で、直接`readData`メソッドは存在しない
+- `collect(upTo:)`メソッドでバイト制限を設定して読み取る
+
+### デバッグログのベストプラクティス
+- 絵文字を使って視覚的に分かりやすくする：
+  - ✅ 成功
+  - ❌ エラー
+  - 🚀 開始
+  - 🔚 終了
+  - 📝 情報
+  - ⚠️ 警告
+- セクションの開始と終了を明確にする：
+  ```
+  [DEBUG] ========== SectionName START ==========
+  [DEBUG] ========== SectionName END ==========
+  ```
+- 重要な情報は構造化して出力：
+  - 環境変数はカテゴリ別にグループ化
+  - 認証情報は部分的にマスク（例：最初の10文字のみ表示）
+- Fire-and-forgetタスクの開始と完了を明確にログ出力
+
 
