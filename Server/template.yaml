@@ -48,15 +48,13 @@ Resources:
           # Application Signals用の設定
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
-          OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
           OTEL_RESOURCE_ATTRIBUTES: service.name=CommandServer
       Policies:
         - AWSXRayDaemonWriteAccess
+        # Application Signalsでメトリクスを送信するための追加権限
         - Statement:
           - Effect: Allow
             Action:
-              - xray:PutTraceSegments
-              - xray:PutTelemetryRecords
               - cloudwatch:PutMetricData
             Resource: '*'
       Events:
@@ -86,15 +84,13 @@ Resources:
           # Application Signals用の設定
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
-          OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
           OTEL_RESOURCE_ATTRIBUTES: service.name=QueryServer
       Policies:
         - AWSXRayDaemonWriteAccess
+        # Application Signalsでメトリクスを送信するための追加権限
         - Statement:
           - Effect: Allow
             Action:
-              - xray:PutTraceSegments
-              - xray:PutTelemetryRecords
               - cloudwatch:PutMetricData
             Resource: '*'
       Events:
@@ -106,34 +102,70 @@ Resources:
             Path: /query/{proxy+}
 
   # X-Ray Trace Segment Destination設定用のカスタムリソース
+  # 注：これはリージョンレベルの設定で、一度設定すれば全てのLambda関数に適用されます
+  # 本来はTerraformで管理すべきですが、Application SignalsとX-Ray OTLPを使用するための
+  # 必須設定なので、SAMテンプレートに含めています
   UpdateTraceDestinationFunction:
     Type: AWS::Serverless::Function
     Properties:
       InlineCode: |
         import json
         import boto3
-        import cfnresponse
+        import urllib3
         
-        xray = boto3.client('xray')
+        SUCCESS = "SUCCESS"
+        FAILED = "FAILED"
+        
+        http = urllib3.PoolManager()
+        
+        def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
+            responseUrl = event['ResponseURL']
+            
+            responseBody = {
+                'Status': responseStatus,
+                'Reason': reason or "See the details in CloudWatch Log Stream: " + context.log_stream_name,
+                'PhysicalResourceId': physicalResourceId or context.log_stream_name,
+                'StackId': event['StackId'],
+                'RequestId': event['RequestId'],
+                'LogicalResourceId': event['LogicalResourceId'],
+                'NoEcho': noEcho,
+                'Data': responseData
+            }
+            
+            json_responseBody = json.dumps(responseBody)
+            
+            headers = {
+                'content-type': '',
+                'content-length': str(len(json_responseBody))
+            }
+            
+            try:
+                response = http.request('PUT', responseUrl,
+                                        headers=headers,
+                                        body=json_responseBody)
+                print("Status code: ", response.status)
+            except Exception as e:
+                print("send(..) failed executing http.request(..):", e)
         
         def handler(event, context):
+            xray = boto3.client('xray')
+            
             try:
                 request_type = event['RequestType']
                 
                 if request_type in ['Create', 'Update']:
                     # CloudWatch LogsをトレースのデスティネーションとしてUpdateする
                     response = xray.update_trace_segment_destination(
-                        TelemetryType='OTEL',
-                        State='Active'
+                        Destination='CloudWatchLogs'
                     )
                     print(f"UpdateTraceSegmentDestination response: {response}")
-                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Message': 'Trace destination updated'})
+                    send(event, context, SUCCESS, {'Message': 'Trace destination updated'})
                 else:
                     # Delete時は何もしない
-                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Message': 'Delete completed'})
+                    send(event, context, SUCCESS, {'Message': 'Delete completed'})
             except Exception as e:
                 print(f"Error: {str(e)}")
-                cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+                send(event, context, FAILED, {'Error': str(e)})
       Runtime: python3.12
       Handler: index.handler
       Timeout: 60

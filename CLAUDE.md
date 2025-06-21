@@ -52,8 +52,49 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 ### X-Ray OTLP APIの要件
 
 - AWS X-RayのOTLP APIを使用する場合、CloudWatch LogsをトレースデスティネーションとしてUpdateTraceSegmentDestination APIで有効化する必要があります
-- SAMテンプレートでカスタムリソースとしてこの設定を管理しています
+- SAMテンプレートでカスタムリソースとしてこの設定を管理しています（本来はリージョンレベルの設定のため、Terraformで管理することも検討可能）
 - エラー例: `The OTLP API is supported with CloudWatch Logs as a Trace Segment Destination.` (400 InvalidRequestException)
+
+### TerraformとSAMの役割分担
+
+**Terraform（AWS/main.tf）**
+- Application Signals Discovery（アカウントレベルの設定）
+- ECRリポジトリの管理
+- CI/CDパイプライン（CodePipeline、CodeBuild）
+- IAMロール（super_role）
+
+**SAM（template.yaml）**
+- Lambda関数の定義と設定
+- API Gateway（HttpApi）
+- 環境変数（OTEL関連）
+- IAM権限（関数実行ロール）
+- UpdateTraceSegmentDestination（リージョンレベル設定だが、OTLPの必須設定のためここで管理）
+
+### Lambda関数の環境変数設定
+
+```yaml
+Environment:
+  Variables:
+    # X-Ray設定
+    AWS_XRAY_CONTEXT_MISSING: LOG_ERROR  # コンテキスト欠落時にエラーログのみ（クラッシュ防止）
+    # OpenTelemetry設定
+    OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
+    OTEL_PROPAGATORS: xray  # X-RayトレースIDフォーマットを使用
+    OTEL_METRICS_EXPORTER: none  # メトリクスエクスポートを無効化（トレースのみ）
+    OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true  # Application Signals有効化
+    OTEL_RESOURCE_ATTRIBUTES: service.name=CommandServer  # サービス名（必須）
+```
+
+### IAM権限の設定
+
+- `AWSXRayDaemonWriteAccess`マネージドポリシー（以下を含む）：
+  - xray:PutTraceSegments
+  - xray:PutTelemetryRecords
+  - xray:GetSamplingRules
+  - xray:GetSamplingTargets
+  - xray:GetSamplingStatisticSummaries
+- 追加権限：
+  - cloudwatch:PutMetricData（Application Signalsのメトリクス送信用）
 
 ### CI/CDパイプライン
 
