@@ -30,6 +30,11 @@ struct AWSSigV4 {
         let amzDate = dateFormatter.string(from: date)
         let shortDate = shortDateFormatter.string(from: date)
 
+        // Hostヘッダーを追加（必須）
+        if let host = URL(string: request.url)?.host {
+            request.headers.add(name: "Host", value: host)
+        }
+
         // 必須ヘッダーを追加
         request.headers.add(name: "X-Amz-Date", value: amzDate)
         if let sessionToken = sessionToken {

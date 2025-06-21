@@ -223,6 +223,16 @@ graph LR
 - `response.body`は`HTTPClientResponse.Body`型で、直接`readData`メソッドは存在しない
 - `collect(upTo:)`メソッドでバイト制限を設定して読み取る
 
+### AWS SigV4署名でのHostヘッダー
+- AWS SigV4署名では、`Host`ヘッダーは必須の署名対象ヘッダー
+- AsyncHTTPClientを使用する場合、明示的にHostヘッダーを追加する必要がある：
+  ```swift
+  if let host = URL(string: request.url)?.host {
+      request.headers.add(name: "Host", value: host)
+  }
+  ```
+- エラー例: `'Host' or ':authority' must be a 'SignedHeader' in the AWS Authorization.` (403 InvalidSignatureException)
+
 ### デバッグログのベストプラクティス
 - 絵文字を使って視覚的に分かりやすくする：
   - ✅ 成功

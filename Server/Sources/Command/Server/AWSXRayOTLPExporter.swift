@@ -281,6 +281,8 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         for (name, value) in request.headers {
             if name.lowercased().contains("authorization") {
                 print("[DEBUG]   \(name): [REDACTED]")
+            } else if name.lowercased().contains("security-token") && value.count > 20 {
+                print("[DEBUG]   \(name): \(String(value.prefix(20)))*****")
             } else {
                 print("[DEBUG]   \(name): \(value)")
             }
