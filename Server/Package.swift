@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-generator.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-openapi-runtime.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-vapor.git", from: "1.0.0"),
-        
+
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift.git", from: "1.0.0"),
     ],
     targets: [

@@ -14,9 +14,9 @@ func configure(_ app: Application) async throws {
         serviceName: "command-server",
         otlpEndpoint: otlpEndpoint
     )
-    
+
     let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")
-    
+
     // ================================
     // HTTP Server Configuration
     // ================================
@@ -34,7 +34,7 @@ func configure(_ app: Application) async throws {
     // ================================
     app.middleware.use(OpenTelemetryTracingMiddleware(tracer: tracer))
     app.middleware.use(VaporRequestMiddleware())
-    
+
     // ================================
     // OpenAPI Vapor Transport
     // ================================
