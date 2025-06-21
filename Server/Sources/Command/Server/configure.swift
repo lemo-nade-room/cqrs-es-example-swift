@@ -13,7 +13,7 @@ func configure(_ app: Application) async throws {
     try await OpenTelemetryConfiguration.configureOpenTelemetry(
         serviceName: "command-server",
         otlpEndpoint: otlpEndpoint,
-        app: app
+        eventLoopGroup: app.eventLoopGroup
     )
 
     let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")

@@ -1,4 +1,5 @@
 import Foundation
+import NIOCore
 @preconcurrency import OpenTelemetryApi
 import OpenTelemetrySdk
 import StdoutExporter
@@ -6,7 +7,7 @@ import Vapor
 
 enum OpenTelemetryConfiguration {
     static func configureOpenTelemetry(
-        serviceName: String, otlpEndpoint: String? = nil, app: Application
+        serviceName: String, otlpEndpoint: String? = nil, eventLoopGroup: any EventLoopGroup
     ) async throws {
         let environmentName = (try? Environment.detect().name) ?? "development"
         let resource = Resource(attributes: [
@@ -28,7 +29,7 @@ enum OpenTelemetryConfiguration {
                 // X-RayのOTLPエンドポイントが指定された場合
                 spanExporter = try await AWSXRayOTLPExporter(
                     endpoint: URL(string: customEndpoint)!,
-                    eventLoopGroup: app.eventLoopGroup
+                    eventLoopGroup: eventLoopGroup
                 )
             } else {
                 // カスタムエンドポイント（ローカルJaegerなど）
@@ -39,7 +40,7 @@ enum OpenTelemetryConfiguration {
             }
         } else if isLambda {
             // Lambda環境ではX-RayのOTLPエンドポイントを使用
-            spanExporter = try await AWSXRayOTLPExporter(eventLoopGroup: app.eventLoopGroup)
+            spanExporter = try await AWSXRayOTLPExporter(eventLoopGroup: eventLoopGroup)
         } else {
             // ローカル開発環境のデフォルト
             // 現時点では標準出力エクスポーターを使用
