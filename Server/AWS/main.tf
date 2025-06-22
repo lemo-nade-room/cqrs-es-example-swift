@@ -32,26 +32,28 @@ resource "awscc_applicationsignals_discovery" "this" {}
 # ================================
 # X-RayがCloudWatch Logsに書き込むためのリソースポリシー
 # OTLP APIを使用するために必要
-resource "aws_cloudwatch_log_resource_policy" "xray_logs_access" {
-  policy_name = "AWSXRayLogsAccess"
+data "aws_iam_policy_document" "xray_logs_access" {
+  statement {
+    effect = "Allow"
 
-  policy_document = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "xray.amazonaws.com"
-        }
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:*:*:log-group:aws/xray/*"
-      }
+    principals {
+      type        = "Service"
+      identifiers = ["xray.amazonaws.com"]
+    }
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
     ]
-  })
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_cloudwatch_log_resource_policy" "xray_logs_access" {
+  policy_name     = "AWSXRayLogsAccess"
+  policy_document = data.aws_iam_policy_document.xray_logs_access.json
 }
 
 
