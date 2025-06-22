@@ -90,6 +90,12 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         }
 
         print("📦 Exporting \(spans.count) spans to X-Ray")
+        if let firstSpan = spans.first {
+            print(
+                "📡 First span: TraceID=\(firstSpan.traceId.hexString), "
+                    + "SpanID=\(firstSpan.spanId.hexString), Name=\(firstSpan.name)"
+            )
+        }
 
         // 早期にProtobufに変換してSendableな形式にする
         do {
@@ -128,9 +134,17 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
 
                 do {
                     try await self.sendHTTPRequest(body: body)
-                    print("✅ Exported \(spanCount) spans to X-Ray")
+                    print("✅ Exported \(spanCount) spans to X-Ray successfully")
                 } catch {
                     print("❌ X-Ray export failed: \(error)")
+                    if let exportError = error as? ExportError {
+                        switch exportError {
+                        case .missingCredentials:
+                            print("❌ Missing AWS credentials")
+                        case .httpError(let statusCode):
+                            print("❌ HTTP error with status code: \(statusCode)")
+                        }
+                    }
                 }
             }
         } catch {
@@ -167,7 +181,11 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
             service: "xray"
         )
 
-        try signer.sign(request: &request, payload: Data(body), date: Date())
+        let signDate = Date()
+        try signer.sign(request: &request, payload: Data(body), date: signDate)
+        print("📡 Sending to: \(endpoint.absoluteString)")
+        print("🔐 Authorization header present: \(request.headers["Authorization"].first != nil)")
+        print("📊 Body size: \(body.count) bytes")
 
         // リクエストボディを設定
         request.body = .bytes(ByteBuffer(data: body))
@@ -175,13 +193,17 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         // リクエストを送信
         let response = try await httpClient.execute(request, timeout: .seconds(30))
 
-        // エラー時のみレスポンスボディを読み取る
-        guard (200...299).contains(response.status.code) else {
+        // レスポンスステータスをチェック
+        if (200...299).contains(response.status.code) {
+            print("✅ X-Ray API response: \(response.status.code)")
+        } else {
             // エラーの詳細を取得
             if let bodyData = try? await response.body.collect(upTo: 1024 * 1024),
                 let errorMessage = bodyData.getString(at: 0, length: bodyData.readableBytes)
             {
                 print("❌ X-Ray API error (\(response.status.code)): \(errorMessage)")
+                print("❌ Request URL: \(endpoint.absoluteString)")
+                print("❌ Request headers: \(request.headers)")
             }
             throw ExportError.httpError(statusCode: Int(response.status.code))
         }
