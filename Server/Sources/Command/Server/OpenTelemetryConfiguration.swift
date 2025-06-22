@@ -34,7 +34,9 @@ enum OpenTelemetryConfiguration {
                     eventLoopGroup: eventLoopGroup
                 )
                 print("🔧 X-Ray exporter configured: \(customEndpoint)")
-            } else if customEndpoint.starts(with: "http://") && (customEndpoint.contains(":4318") || customEndpoint.contains("jaeger")) {
+            } else if customEndpoint.starts(with: "http://")
+                && (customEndpoint.contains(":4318") || customEndpoint.contains("jaeger"))
+            {
                 // Jaeger OTLP HTTP endpoint
                 spanExporter = try await JaegerOTLPExporter(
                     endpoint: URL(string: customEndpoint)!,

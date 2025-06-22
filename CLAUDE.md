@@ -177,3 +177,32 @@ Environment:
 - 絵文字を効果的に使用（🚀起動、✅成功、❌エラー、📦バッチ処理など）
 - 1行で情報を集約して可読性向上
 - Fire-and-forgetパターンでは結果を簡潔にログ出力
+
+## 学習記録
+
+### 2025年1月 - X-RayトレースIDの伝搬問題解決
+
+#### 問題
+- X-Ray形式のトレースID（`1-XXXXXXXX-YYYYYYYY`）がOpenTelemetryに変換される際に先頭の`1-`が欠落
+- 各スパンが異なるトレースIDを持ち、親子関係が正しく設定されない
+- AWS X-Rayでトレースが検索できない
+
+#### 解決方法
+1. **XRayContextの拡張**
+   - 元のX-Ray形式トレースIDを保存するフィールドを追加
+   - TraceId拡張でX-Ray形式への変換メソッドを実装
+
+2. **コンテキスト伝搬の改善**
+   - `withSpan`にServiceContextを明示的に渡す
+   - `app.traceAutoPropagation = true`を設定
+   - VaporのRequest.serviceContextを活用
+
+3. **デバッグログの追加**
+   - トレース抽出、作成、伝搬の各段階で詳細なログを出力
+   - 問題の特定と解決を容易にするため
+
+#### 重要な学び
+- **プロセス管理**: サーバー起動時は必ずバックグラウンド実行（`&`）を使用
+- **Swift Format**: linterを通すことを忘れない（trailing whitespace、line lengthなど）
+- **Vaporの標準機能活用**: カスタム実装より標準のTracingMiddlewareとserviceContextを使用
+- **X-Rayヘッダー**: 大文字小文字両方に対応する必要がある

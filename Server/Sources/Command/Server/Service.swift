@@ -18,8 +18,10 @@ struct Service: APIProtocol {
 
         // VaporのRequestからServiceContextを取得して明示的に渡す
         let context = Service.req?.serviceContext ?? ServiceContext.topLevel
-        logger.debug("📊 Using context with trace info: \(context.xRayTraceContext != nil ? "X-Ray trace present" : "No X-Ray trace")")
-        
+        logger.debug(
+            "📊 Using context with trace info: \(context.xRayTraceContext != nil ? "X-Ray trace present" : "No X-Ray trace")"
+        )
+
         await withSpan("healthcheck", context: context) { span in
             span.updateAttributes { attributes in
                 attributes["service.name"] = "command-server"

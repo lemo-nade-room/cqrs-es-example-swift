@@ -92,15 +92,19 @@ extension OpenTelemetryDistributedTracer: Tracing.Tracer {
                 traceState: TraceState()
             )
             spanBuilder.setParent(spanContext)
-            print("🔗 Using X-Ray trace context - TraceId: \(xRayContext.traceId.hexString), X-Ray: \(xRayContext.xrayTraceId)")
+            print(
+                "🔗 Using X-Ray trace context - TraceId: \(xRayContext.traceId.hexString), X-Ray: \(xRayContext.xrayTraceId)"
+            )
         } else {
             print("⚠️ No parent context found - creating new trace")
         }
 
         // Start the span
         let openTelemetrySpan = spanBuilder.startSpan()
-        
-        print("📐 Created span: \(operationName) - TraceId: \(openTelemetrySpan.context.traceId.hexString), SpanId: \(openTelemetrySpan.context.spanId.hexString)")
+
+        print(
+            "📐 Created span: \(operationName) - TraceId: \(openTelemetrySpan.context.traceId.hexString), SpanId: \(openTelemetrySpan.context.spanId.hexString)"
+        )
 
         // Create the wrapper span
         let span = OpenTelemetryDistributedSpan(
@@ -156,7 +160,6 @@ actor OpenTelemetryDistributedSpan {
         self.context = context
     }
 }
-
 
 // MARK: - Span Protocol Conformance
 extension OpenTelemetryDistributedSpan: Tracing.Span {
@@ -251,7 +254,8 @@ extension OpenTelemetryDistributedSpan: Tracing.Span {
         // This is a limitation we'll have to accept
     }
 
-    nonisolated func end<Instant>(at instant: @autoclosure () -> Instant) where Instant: TracerInstant {
+    nonisolated func end<Instant>(at instant: @autoclosure () -> Instant)
+    where Instant: TracerInstant {
         let timestamp = Date(
             timeIntervalSince1970: TimeInterval(instant().nanosecondsSinceEpoch) / 1_000_000_000
         )

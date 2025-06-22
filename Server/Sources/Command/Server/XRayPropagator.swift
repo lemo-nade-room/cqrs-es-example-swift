@@ -45,7 +45,9 @@ struct XRayPropagator {
                     traceIdHex = String(components[1] + components[2])
                     // Store the full X-Ray format trace ID
                     xrayTraceIdFull = rootValue
-                    print("🔍 X-Ray trace extraction - Full: \(rootValue), Hex: \(traceIdHex ?? "nil")")
+                    print(
+                        "🔍 X-Ray trace extraction - Full: \(rootValue), Hex: \(traceIdHex ?? "nil")"
+                    )
                 }
             } else if trimmedField.hasPrefix("Parent=") {
                 spanIdHex = String(trimmedField.dropFirst(7))
@@ -71,8 +73,10 @@ struct XRayPropagator {
         // SpanId uses the built-in fromHexString initializer
         let spanId = SpanId(fromHexString: spanIdHex)
 
-        print("✅ X-Ray context created - TraceId: \(traceId.hexString), SpanId: \(spanId.hexString)")
-        return XRayContext(traceId: traceId, spanId: spanId, sampled: sampled, xrayTraceId: xrayTraceIdFull)
+        print(
+            "✅ X-Ray context created - TraceId: \(traceId.hexString), SpanId: \(spanId.hexString)")
+        return XRayContext(
+            traceId: traceId, spanId: spanId, sampled: sampled, xrayTraceId: xrayTraceIdFull)
     }
 }
 
