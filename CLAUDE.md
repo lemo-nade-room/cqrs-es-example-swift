@@ -148,10 +148,6 @@ Environment:
 1. **接続タイムアウト**: コールドスタート時に発生可能性あり
 2. **Hostヘッダー**: AsyncHTTPClient使用時は明示的に追加が必要
 3. **Lambda実行時間**: Task.detached処理が中断される可能性
-4. **トレースIDの分離**: swift-distributed-tracingの`withSpan`でServiceContext伝播に課題
-   - 各スパンが独立したトレースとして記録される
-   - OpenAPIとVaporの統合における制約
-   - AWS X-Rayでは問題なく動作することを確認済み
 
 ### Vaporとトレーシングの統合
 1. **Vapor標準機能の活用**
@@ -166,9 +162,16 @@ Environment:
    
 3. **ミドルウェアの順序**
    ```swift
+   app.traceAutoPropagation = true  // トレースの自動伝搬を有効化
    app.middleware.use(TracingMiddleware())  // Vaporの標準
    app.middleware.use(VaporRequestMiddleware())  // ServiceContext伝播用
    ```
+   
+4. **X-RayトレースIDの伝搬**
+   - X-Ray形式（`1-XXXXXXXX-YYYYYYYY`）とOpenTelemetry形式の変換が必要
+   - XRayContextに元のX-Ray形式を保存して一貫性を保つ
+   - `withSpan`でコンテキストを明示的に渡すことが重要
+   - 大文字小文字両方のX-Rayヘッダーに対応（`X-Amzn-Trace-Id`、`x-amzn-trace-id`）
 
 ### デバッグログのベストプラクティス
 - 絵文字を効果的に使用（🚀起動、✅成功、❌エラー、📦バッチ処理など）
