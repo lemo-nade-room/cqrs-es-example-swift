@@ -66,6 +66,8 @@ func configure(_ app: Application) async throws {
     }
 
     // Middleware Configuration
+    // トレースの自動伝搬を有効化
+    app.traceAutoPropagation = true
     app.middleware.use(TracingMiddleware())
     app.middleware.use(VaporRequestMiddleware())
     app.logger.debug("🧩 Middleware stack ready")

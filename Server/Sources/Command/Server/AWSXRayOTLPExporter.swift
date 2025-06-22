@@ -101,10 +101,20 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         for (index, span) in spans.enumerated() {
             print(
                 "📡 Span \(index + 1): TraceID=\(span.traceId.hexString), "
+                    + "X-Ray=\(span.traceId.xrayTraceId), "
                     + "SpanID=\(span.spanId.hexString), Name=\(span.name)"
             )
+            if let parentSpanId = span.parentSpanId {
+                print("  Parent SpanID: \(parentSpanId.hexString)")
+            }
             if !span.attributes.isEmpty {
                 print("  Attributes: \(span.attributes.count) items")
+                // X-Ray関連の属性を探す
+                for (key, value) in span.attributes {
+                    if key.contains("xray") || key.contains("trace") {
+                        print("    - \(key): \(value)")
+                    }
+                }
             }
         }
 

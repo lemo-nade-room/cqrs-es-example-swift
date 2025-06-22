@@ -22,11 +22,17 @@ extension OpenTelemetryDistributedTracer: Instrumentation.Instrument {
     where Extract: Extractor, Extract.Carrier == Carrier {
         // X-Ray trace header extraction
         if let xRayHeader = extractor.extract(key: "X-Amzn-Trace-Id", from: carrier) {
+            print("🎯 Extracting X-Ray header: \(xRayHeader)")
             // Convert single header value to dictionary for XRayPropagator
             let headers = ["X-Amzn-Trace-Id": xRayHeader]
             if let xRayContext = XRayPropagator.extractTraceContext(from: headers) {
                 context[XRayTraceContextKey.self] = xRayContext
+                print("✅ X-Ray context stored in ServiceContext")
+            } else {
+                print("❌ Failed to extract X-Ray context from header")
             }
+        } else {
+            print("⚠️ No X-Ray header found in carrier")
         }
     }
 
@@ -75,6 +81,7 @@ extension OpenTelemetryDistributedTracer: Tracing.Tracer {
             // Extract parent context if available
             if let parentOTelSpan = parentSpan as? OpenTelemetryDistributedSpan {
                 spanBuilder.setParent(parentOTelSpan.openTelemetrySpan)
+                print("🔗 Using parent span from ServiceContext")
             }
         } else if let xRayContext = currentContext.xRayTraceContext {
             // Use X-Ray trace context if available
@@ -85,10 +92,15 @@ extension OpenTelemetryDistributedTracer: Tracing.Tracer {
                 traceState: TraceState()
             )
             spanBuilder.setParent(spanContext)
+            print("🔗 Using X-Ray trace context - TraceId: \(xRayContext.traceId.hexString), X-Ray: \(xRayContext.xrayTraceId)")
+        } else {
+            print("⚠️ No parent context found - creating new trace")
         }
 
         // Start the span
         let openTelemetrySpan = spanBuilder.startSpan()
+        
+        print("📐 Created span: \(operationName) - TraceId: \(openTelemetrySpan.context.traceId.hexString), SpanId: \(openTelemetrySpan.context.spanId.hexString)")
 
         // Create the wrapper span
         let span = OpenTelemetryDistributedSpan(
