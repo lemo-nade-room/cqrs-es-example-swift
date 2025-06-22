@@ -382,5 +382,43 @@ aws codepipeline get-pipeline-state \
   // ✅ Good  
   case .string(let value):
   ```
+- 長い行は適切に改行する（LineLength警告を避ける）
+  ```swift
+  // ❌ Bad - 1行が長すぎる
+  print("Very long string with \(variable1) and \(variable2) and more text")
+  
+  // ✅ Good - 文字列連結で改行
+  print(
+      "Very long string with \(variable1) " +
+      "and \(variable2) and more text"
+  )
+  ```
+- 行末の空白は削除する（TrailingWhitespace警告）
+
+### X-Rayトレースのデバッグ
+
+- X-Rayへのトレース送信が失敗する場合、以下を確認：
+  1. CloudWatch Logsリソースポリシーが正しく設定されているか
+  2. UpdateTraceSegmentDestinationが実行されているか
+  3. Lambda関数のIAMロールに必要な権限があるか
+  4. OTLP送信のエンドポイントURL、SigV4署名が正しいか
+
+- デバッグ時は以下の情報をログ出力すると有効：
+  - トレースID、スパンID（hexString形式で出力）
+  - スパン名（どのAPIエンドポイントのトレースか確認）
+  - HTTPリクエストのURL、認証ヘッダーの有無
+  - リクエストボディのサイズ
+  - レスポンスのステータスコードとエラーメッセージ
+
+- Fire-and-forgetパターンで非同期送信する場合のベストプラクティス：
+  - エラーハンドリングは必須（catch節で詳細をログ出力）
+  - ExportError型でエラーを分類（認証エラー、HTTPエラー）
+  - 成功時も確認のためログを出力
+
+- X-Rayコンソールでトレースが見えない場合の確認ポイント：
+  - `/aws/spans`ロググループが作成されているか
+  - Lambda関数のログで"✅ Exported"メッセージが出ているか
+  - "❌ X-Ray export failed"エラーが出ていないか
+  - HTTPステータスコードが2xxになっているか
 
 
