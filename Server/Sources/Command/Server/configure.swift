@@ -46,7 +46,13 @@ func configure(_ app: Application) async throws {
         eventLoopGroup: app.eventLoopGroup
     )
 
-    let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")
+    // Get OpenTelemetry tracer and wrap it with swift-distributed-tracing adapter
+    let otelTracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")
+    let distributedTracer = OpenTelemetryDistributedTracer(openTelemetryTracer: otelTracer)
+
+    // Bootstrap the instrumentation system with our tracer
+    InstrumentationSystem.bootstrap(distributedTracer)
+
     app.logger.debug("✅ OpenTelemetry ready with service: \(serviceName)")
 
     // HTTP Server Configuration
@@ -60,7 +66,7 @@ func configure(_ app: Application) async throws {
     }
 
     // Middleware Configuration
-    app.middleware.use(OpenTelemetryTracingMiddleware(tracer: tracer))
+    app.middleware.use(DistributedTracingMiddleware())
     app.middleware.use(VaporRequestMiddleware())
     app.logger.debug("🧩 Middleware stack ready")
 

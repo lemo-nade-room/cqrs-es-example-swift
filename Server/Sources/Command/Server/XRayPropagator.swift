@@ -2,6 +2,13 @@ import Foundation
 @preconcurrency import OpenTelemetryApi
 import OpenTelemetrySdk
 
+/// X-Ray trace context information
+struct XRayContext {
+    let traceId: TraceId
+    let spanId: SpanId
+    let sampled: Bool
+}
+
 /// A propagator for AWS X-Ray trace context.
 ///
 /// This propagator extracts trace context from the AWS X-Ray trace header format.
@@ -12,10 +19,8 @@ struct XRayPropagator {
     /// Extracts trace context from HTTP headers.
     ///
     /// - Parameter headers: The HTTP headers containing the X-Ray trace ID.
-    /// - Returns: A tuple containing the trace ID and span ID if extraction was successful, nil otherwise.
-    static func extractTraceContext(from headers: [String: String]) -> (
-        traceId: TraceId, spanId: SpanId
-    )? {
+    /// - Returns: An XRayContext if extraction was successful, nil otherwise.
+    static func extractTraceContext(from headers: [String: String]) -> XRayContext? {
         guard let xRayTraceID = headers[xRayTraceIDKey] ?? headers[xRayTraceIDKey.lowercased()]
         else {
             return nil
@@ -23,6 +28,7 @@ struct XRayPropagator {
 
         var traceIdHex: String?
         var spanIdHex: String?
+        var sampled = false
 
         // Parse X-Ray trace header format: Root=1-XXXXXXXX-YYYYYYYYYYYYYYYYYYYYYYYY;Parent=ZZZZZZZZZZZZZZZZ;Sampled=0/1
         for field in xRayTraceID.split(separator: ";") {
@@ -38,6 +44,9 @@ struct XRayPropagator {
                 }
             } else if trimmedField.hasPrefix("Parent=") {
                 spanIdHex = String(trimmedField.dropFirst(7))
+            } else if trimmedField.hasPrefix("Sampled=") {
+                let sampledValue = String(trimmedField.dropFirst(8))
+                sampled = sampledValue == "1"
             }
         }
 
@@ -53,6 +62,6 @@ struct XRayPropagator {
         // SpanId uses the built-in fromHexString initializer
         let spanId = SpanId(fromHexString: spanIdHex)
 
-        return (traceId, spanId)
+        return XRayContext(traceId: traceId, spanId: spanId, sampled: sampled)
     }
 }

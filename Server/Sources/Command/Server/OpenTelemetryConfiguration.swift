@@ -3,6 +3,7 @@ import NIOCore
 @preconcurrency import OpenTelemetryApi
 import OpenTelemetrySdk
 import StdoutExporter
+import Tracing
 import Vapor
 
 enum OpenTelemetryConfiguration {
@@ -59,7 +60,7 @@ enum OpenTelemetryConfiguration {
         OpenTelemetry.registerTracerProvider(tracerProvider: tracerProvider)
     }
 
-    static func getTracer(instrumentationName: String) -> any Tracer {
+    static func getTracer(instrumentationName: String) -> any OpenTelemetryApi.Tracer {
         return OpenTelemetry.instance.tracerProvider.get(
             instrumentationName: instrumentationName,
             instrumentationVersion: "1.0.0"

@@ -19,6 +19,8 @@ let package = Package(
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
+        .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-service-context.git", from: "1.0.0"),
     ],
     targets: [
         // MARK: Command
@@ -35,6 +37,8 @@ let package = Package(
                 .product(name: "StdoutExporter", package: "opentelemetry-swift"),
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "Tracing", package: "swift-distributed-tracing"),
+                .product(name: "ServiceContextModule", package: "swift-service-context"),
             ],
             path: "Sources/Command/Server",
             swiftSettings: swiftSettings,

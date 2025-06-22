@@ -22,7 +22,9 @@ struct XRayPropagatorTests {
                 "Root=1-684cd338-55ea19fa5d8a7e683178aa1b;Parent=944a39c5ded7c2b1;Sampled=1;Lineage=1:7326f8b8:0"
         ]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         // Verify trace ID
         #expect(traceId.hexString == "684cd33855ea19fa5d8a7e683178aa1b")
@@ -38,7 +40,9 @@ struct XRayPropagatorTests {
                 "Root=1-684cd338-55ea19fa5d8a7e683178aa1b;Parent=944a39c5ded7c2b1;Sampled=1"
         ]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         #expect(traceId.hexString == "684cd33855ea19fa5d8a7e683178aa1b")
         #expect(spanId.hexString == "944a39c5ded7c2b1")
@@ -51,7 +55,9 @@ struct XRayPropagatorTests {
                 "Parent=944a39c5ded7c2b1;Root=1-684cd338-55ea19fa5d8a7e683178aa1b;Sampled=0"
         ]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         #expect(traceId.hexString == "684cd33855ea19fa5d8a7e683178aa1b")
         #expect(spanId.hexString == "944a39c5ded7c2b1")
@@ -64,7 +70,9 @@ struct XRayPropagatorTests {
                 "Root=1-684cd338-55ea19fa5d8a7e683178aa1b; Parent=944a39c5ded7c2b1; Sampled=1"
         ]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         #expect(traceId.hexString == "684cd33855ea19fa5d8a7e683178aa1b")
         #expect(spanId.hexString == "944a39c5ded7c2b1")
@@ -109,7 +117,9 @@ struct XRayPropagatorTests {
             "X-Amzn-Trace-Id": "Root=1-684cd338-55ea19fa5d8a7e683178aa1b;Parent=944a39c5ded7c2b1"
         ]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         #expect(traceId.hexString == "684cd33855ea19fa5d8a7e683178aa1b")
         #expect(spanId.hexString == "944a39c5ded7c2b1")
@@ -137,7 +147,9 @@ struct XRayPropagatorTests {
     ) throws {
         let headers = ["X-Amzn-Trace-Id": header]
 
-        let (traceId, spanId) = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let context = try #require(XRayPropagator.extractTraceContext(from: headers))
+        let traceId = context.traceId
+        let spanId = context.spanId
 
         #expect(traceId.hexString == expectedTraceId)
         #expect(spanId.hexString == expectedSpanId)
