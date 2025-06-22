@@ -90,11 +90,22 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         }
 
         print("📦 Exporting \(spans.count) spans to X-Ray")
-        if let firstSpan = spans.first {
+
+        // リソース属性をログ出力
+        print("🏷️ Resource attributes:")
+        for (key, value) in self.resource.attributes {
+            print("  - \(key): \(value)")
+        }
+
+        // スパンの詳細情報をログ出力
+        for (index, span) in spans.enumerated() {
             print(
-                "📡 First span: TraceID=\(firstSpan.traceId.hexString), "
-                    + "SpanID=\(firstSpan.spanId.hexString), Name=\(firstSpan.name)"
+                "📡 Span \(index + 1): TraceID=\(span.traceId.hexString), "
+                    + "SpanID=\(span.spanId.hexString), Name=\(span.name)"
             )
+            if !span.attributes.isEmpty {
+                print("  Attributes: \(span.attributes.count) items")
+            }
         }
 
         // 早期にProtobufに変換してSendableな形式にする
@@ -196,6 +207,15 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
         // レスポンスステータスをチェック
         if (200...299).contains(response.status.code) {
             print("✅ X-Ray API response: \(response.status.code)")
+
+            // 成功レスポンスのボディも確認
+            if let bodyData = try? await response.body.collect(upTo: 1024 * 1024),
+                bodyData.readableBytes > 0
+            {
+                let responseBody =
+                    bodyData.getString(at: 0, length: bodyData.readableBytes) ?? "N/A"
+                print("📄 Response body: \(responseBody)")
+            }
         } else {
             // エラーの詳細を取得
             if let bodyData = try? await response.body.collect(upTo: 1024 * 1024),
