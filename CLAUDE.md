@@ -421,4 +421,33 @@ aws codepipeline get-pipeline-state \
   - "❌ X-Ray export failed"エラーが出ていないか
   - HTTPステータスコードが2xxになっているか
 
+### X-Rayトレース送信の既知の問題
+
+#### 接続タイムアウト問題
+- Lambda環境で`HTTPClientError.connectTimeout`が発生することがある
+- 特にコールドスタート時やWarm Lambda実行時の初回接続で発生
+- タイムアウト設定を短くすることで影響を軽減（connect: 5秒、read: 10秒）
+
+#### トレースが表示されない問題
+- HTTP 200レスポンスが返っているにも関わらず、X-Rayコンソールにトレースが表示されないことがある
+- 考えられる原因：
+  - トレースIDの形式の違い（X-Ray形式 vs OpenTelemetry形式）
+  - Application Signalsの設定問題
+  - スパン属性の不足
+
+#### デバッグログの活用
+- 詳細なログを追加することで問題を特定しやすくなる：
+  ```
+  📦 Exporting 2 spans to X-Ray
+  📡 First span: TraceID=..., SpanID=..., Name=GET /Stage/command/v1/healthcheck
+  📡 Sending to: https://xray.ap-northeast-1.amazonaws.com/v1/traces
+  🔐 Authorization header present: true
+  📊 Body size: 235 bytes
+  ✅ X-Ray API response: 200
+  ```
+
+#### Lambda環境での非同期処理
+- Task.detachedで非同期送信を行うが、Lambda関数の実行が終了すると処理が中断される可能性がある
+- Fire-and-forgetパターンのため、送信結果の確認は後続のログで行う必要がある
+
 
