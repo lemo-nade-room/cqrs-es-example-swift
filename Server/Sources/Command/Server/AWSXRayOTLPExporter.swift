@@ -73,8 +73,8 @@ final class AWSXRayOTLPExporter: SpanExporter, @unchecked Sendable {
             eventLoopGroupProvider: .shared(eventLoopGroup),
             configuration: HTTPClient.Configuration(
                 timeout: HTTPClient.Configuration.Timeout(
-                    connect: .seconds(10),
-                    read: .seconds(30)
+                    connect: .seconds(5),
+                    read: .seconds(10)
                 )
             )
         )
@@ -251,6 +251,13 @@ extension SpanData {
                 $0.code = self.status.toProto()
                 if case .error(let description) = self.status {
                     $0.message = description
+                }
+            }
+            // 属性を追加
+            $0.attributes = self.attributes.map { key, value in
+                return Opentelemetry_Proto_Common_V1_KeyValue.with {
+                    $0.key = key
+                    $0.value = value.toProto()
                 }
             }
         }
