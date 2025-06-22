@@ -17,3 +17,8 @@ output "application_signals_enabled" {
   value       = awscc_applicationsignals_discovery.this.id
   description = "Application Signals Discovery resource ID"
 }
+
+output "xray_logs_policy_name" {
+  description = "Name of the CloudWatch Logs resource policy for X-Ray"
+  value       = aws_cloudwatch_log_resource_policy.xray_logs_access.id
+}

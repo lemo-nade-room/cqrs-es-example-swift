@@ -17,10 +17,6 @@ terraform {
       source  = "hashicorp/awscc"
       version = "~> 1.0"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -32,22 +28,32 @@ provider "awscc" {
 resource "awscc_applicationsignals_discovery" "this" {}
 
 # ================================
-# X-Ray Trace Segment Destination
+# X-Ray CloudWatch Logs Permission
 # ================================
-# X-Ray OTLPエンドポイントを使用するためにCloudWatch Logsを有効化
-# 注：この設定はリージョンレベルで、一度設定すれば全てのLambda関数に適用されます
-resource "null_resource" "xray_trace_destination" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws xray update-trace-segment-destination \
-        --destination CloudWatchLogs \
-        --region ${var.region} || true
-    EOT
-  }
+# X-RayがCloudWatch Logsに書き込むためのリソースポリシー
+# OTLP APIを使用するために必要
+resource "aws_cloudwatch_log_resource_policy" "xray_logs_access" {
+  policy_name = "AWSXRayLogsAccess"
 
-  # Application Signalsが有効化された後に実行
-  depends_on = [awscc_applicationsignals_discovery.this]
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "xray.amazonaws.com"
+        }
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:log-group:aws/xray/*"
+      }
+    ]
+  })
 }
+
 
 # ================================
 # Elastic Container Registry

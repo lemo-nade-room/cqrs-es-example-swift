@@ -52,14 +52,26 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 ### X-Ray OTLP APIの要件
 
 - AWS X-RayのOTLP APIを使用する場合、CloudWatch LogsをトレースデスティネーションとしてUpdateTraceSegmentDestination APIで有効化する必要があります
-- SAMテンプレートでカスタムリソースとしてこの設定を管理しています（本来はリージョンレベルの設定のため、Terraformで管理することも検討可能）
 - エラー例: `The OTLP API is supported with CloudWatch Logs as a Trace Segment Destination.` (400 InvalidRequestException)
+- CloudWatch LogsリソースポリシーでX-Rayサービスからのアクセスを許可する必要があります（Terraformで自動設定済み）
+
+#### 手動設定方法
+
+Terraformでリソースポリシーを適用した後、以下のコマンドを一度実行してください（リージョンごとに必要）：
+
+```bash
+aws xray update-trace-segment-destination \
+  --destination CloudWatchLogs \
+  --region ap-northeast-1
+```
+
+この設定は永続的で、一度設定すればそのリージョンの全てのLambda関数に適用されます。
 
 ### TerraformとSAMの役割分担
 
 **Terraform（AWS/main.tf）**
 - Application Signals Discovery（アカウントレベルの設定）
-- X-Ray Trace Segment Destination設定（CloudWatch Logsへの出力を有効化）
+- CloudWatch LogsリソースポリシーforX-Ray（OTLP API有効化のため）
 - ECRリポジトリの管理
 - CI/CDパイプライン（CodePipeline、CodeBuild）
 - IAMロール（super_role）
