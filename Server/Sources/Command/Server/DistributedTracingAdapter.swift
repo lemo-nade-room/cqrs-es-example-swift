@@ -20,11 +20,13 @@ extension OpenTelemetryDistributedTracer: Instrumentation.Instrument {
         _ carrier: Carrier, into context: inout ServiceContext, using extractor: Extract
     )
     where Extract: Extractor, Extract.Carrier == Carrier {
-        // For now, we'll delegate to X-Ray propagator for HTTP headers
-        if let headers = carrier as? [String: String],
-            let xRayContext = XRayPropagator.extractTraceContext(from: headers)
-        {
-            context[XRayTraceContextKey.self] = xRayContext
+        // X-Ray trace header extraction
+        if let xRayHeader = extractor.extract(key: "X-Amzn-Trace-Id", from: carrier) {
+            // Convert single header value to dictionary for XRayPropagator
+            let headers = ["X-Amzn-Trace-Id": xRayHeader]
+            if let xRayContext = XRayPropagator.extractTraceContext(from: headers) {
+                context[XRayTraceContextKey.self] = xRayContext
+            }
         }
     }
 
@@ -142,6 +144,7 @@ actor OpenTelemetryDistributedSpan {
         self.context = context
     }
 }
+
 
 // MARK: - Span Protocol Conformance
 extension OpenTelemetryDistributedSpan: Tracing.Span {
@@ -289,9 +292,22 @@ extension ServiceContext {
     }
 }
 
-private enum DistributedTracingSpanKey: ServiceContextKey {
+enum DistributedTracingSpanKey: ServiceContextKey {
     typealias Value = any Tracing.Span
     static let defaultValue: (any Tracing.Span)? = nil
+}
+
+// MARK: - ServiceContext Keys
+enum XRayTraceContextKey: ServiceContextKey {
+    typealias Value = XRayContext
+    static let defaultValue: XRayContext? = nil
+}
+
+extension ServiceContext {
+    /// Access X-Ray trace context if available
+    var xRayTraceContext: XRayContext? {
+        self[XRayTraceContextKey.self]
+    }
 }
 
 // MARK: - SpanAttributes Extension

@@ -83,6 +83,13 @@ openapi-generator validate -i ./Server/Sources/Command/Server/openapi.yaml
 - Fire-and-forget方式の非同期送信
 - service.nameは固定値`"CommandServer"`を使用
 
+### ローカル開発環境（Jaeger）
+- JaegerコンテナでOTLP/HTTPエンドポイントを提供（ポート4318）
+- `OTEL_EXPORTER_OTLP_ENDPOINT=http://172.17.0.1:4318`で接続（Dockerコンテナ内から）
+- JaegerOTLPExporter実装でローカルトレーシングをサポート
+- Jaeger UI: http://localhost:16686
+- 起動方法：`docker compose up -d` (Server/compose.yaml)
+
 ### 必要な設定
 
 #### 1. X-Ray OTLP有効化（リージョンごとに一度だけ実行）
@@ -141,6 +148,10 @@ Environment:
 1. **接続タイムアウト**: コールドスタート時に発生可能性あり
 2. **Hostヘッダー**: AsyncHTTPClient使用時は明示的に追加が必要
 3. **Lambda実行時間**: Task.detached処理が中断される可能性
+4. **トレースIDの分離**: swift-distributed-tracingの`withSpan`でServiceContext伝播に課題
+   - 各スパンが独立したトレースとして記録される
+   - OpenAPIとVaporの統合における制約
+   - AWS X-Rayでは問題なく動作することを確認済み
 
 ### デバッグログのベストプラクティス
 - 絵文字を効果的に使用（🚀起動、✅成功、❌エラー、📦バッチ処理など）

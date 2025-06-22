@@ -2,6 +2,7 @@ import Foundation
 import Instrumentation
 import Logging
 import OpenAPIRuntime
+import ServiceContextModule
 import Tracing
 import Vapor
 
@@ -15,6 +16,7 @@ struct Service: APIProtocol {
     ) async throws -> Operations.GetV1Healthcheck.Output {
         logger.info("🏥 Healthcheck requested")
 
+        // VaporのRequestからServiceContextを取得し、自動的に伝搬される
         await withSpan("healthcheck") { span in
             span.updateAttributes { attributes in
                 attributes["service.name"] = "command-server"

@@ -66,7 +66,7 @@ func configure(_ app: Application) async throws {
     }
 
     // Middleware Configuration
-    app.middleware.use(DistributedTracingMiddleware())
+    app.middleware.use(TracingMiddleware())
     app.middleware.use(VaporRequestMiddleware())
     app.logger.debug("🧩 Middleware stack ready")
 
