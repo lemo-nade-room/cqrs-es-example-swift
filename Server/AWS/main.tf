@@ -24,6 +24,24 @@ provider "awscc" {
 resource "awscc_applicationsignals_discovery" "this" {}
 
 # ================================
+# X-Ray Trace Segment Destination
+# ================================
+# X-Ray OTLPエンドポイントを使用するためにCloudWatch Logsを有効化
+# 注：この設定はリージョンレベルで、一度設定すれば全てのLambda関数に適用されます
+resource "null_resource" "xray_trace_destination" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws xray update-trace-segment-destination \
+        --destination CloudWatchLogs \
+        --region ${var.region} || true
+    EOT
+  }
+
+  # Application Signalsが有効化された後に実行
+  depends_on = [awscc_applicationsignals_discovery.this]
+}
+
+# ================================
 # Elastic Container Registry
 # ================================
 resource "aws_ecr_repository" "command_server_function_repository" {

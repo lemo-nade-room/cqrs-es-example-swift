@@ -59,6 +59,7 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 
 **Terraform（AWS/main.tf）**
 - Application Signals Discovery（アカウントレベルの設定）
+- X-Ray Trace Segment Destination設定（CloudWatch Logsへの出力を有効化）
 - ECRリポジトリの管理
 - CI/CDパイプライン（CodePipeline、CodeBuild）
 - IAMロール（super_role）
@@ -68,7 +69,6 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - API Gateway（HttpApi）
 - 環境変数（OTEL関連）
 - IAM権限（関数実行ロール）
-- UpdateTraceSegmentDestination（リージョンレベル設定だが、OTLPの必須設定のためここで管理）
 
 ### Lambda関数の環境変数設定
 
