@@ -6,9 +6,7 @@ import Tracing
 import Vapor
 
 func configure(_ app: Application) async throws {
-    // ================================
     // Debug Logging
-    // ================================
     app.logger.debug("🚀 Starting configure()")
 
     // Lambda環境の検出
@@ -37,9 +35,7 @@ func configure(_ app: Application) async throws {
         && Environment.get("AWS_SECRET_ACCESS_KEY") != nil
     app.logger.debug("🔐 AWS Credentials: \(hasCredentials ? "✅ Ready" : "❌ Missing")")
 
-    // ================================
     // OpenTelemetry Configuration
-    // ================================
     app.logger.debug("🔧 Configuring OpenTelemetry...")
     let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT")
     let serviceName = "CommandServer"  // 固定のサービス名を使用
@@ -53,30 +49,22 @@ func configure(_ app: Application) async throws {
     let tracer = OpenTelemetryConfiguration.getTracer(instrumentationName: "CommandServer")
     app.logger.debug("✅ OpenTelemetry ready with service: \(serviceName)")
 
-    // ================================
     // HTTP Server Configuration
-    // ================================
     if app.environment == .development {
         app.http.server.configuration.port = 3001
     }
 
-    // ================================
     // Lambda Web Adapter
-    // ================================
     app.get { req in
         return "It works!"
     }
 
-    // ================================
     // Middleware Configuration
-    // ================================
     app.middleware.use(OpenTelemetryTracingMiddleware(tracer: tracer))
     app.middleware.use(VaporRequestMiddleware())
     app.logger.debug("🧩 Middleware stack ready")
 
-    // ================================
     // OpenAPI Vapor Transport
-    // ================================
     let transport = VaporTransport(routesBuilder: app)
     let service = Service(logger: app.logger)
     let serverURL: URL =

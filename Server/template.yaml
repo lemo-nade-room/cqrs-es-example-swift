@@ -33,25 +33,18 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref CommandServerFunctionImageUri
-      # Layerはコンテナイメージでは使用できないため、
-      # X-Rayへの送信はアプリケーション内のOpenTelemetryから直接行います
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
           AWS_XRAY_CONTEXT_MISSING: LOG_ERROR
-          # CloudWatch Application SignalsのOTLPエンドポイントを使用
           OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
-          # X-RayのトレースIDフォーマットを使用
           OTEL_PROPAGATORS: xray
-          # VaporのLogLevelをDEBUGに設定
           LOG_LEVEL: DEBUG
-          # Application Signals用の設定
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
           OTEL_RESOURCE_ATTRIBUTES: service.name=CommandServer
       Policies:
         - AWSXRayDaemonWriteAccess
-        # Application Signalsでメトリクスを送信するための追加権限
         - Statement:
           - Effect: Allow
             Action:
@@ -69,25 +62,18 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref QueryServerFunctionImageUri
-      # Layerはコンテナイメージでは使用できないため、
-      # X-Rayへの送信はアプリケーション内のOpenTelemetryから直接行います
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
           AWS_XRAY_CONTEXT_MISSING: LOG_ERROR
-          # CloudWatch Application SignalsのOTLPエンドポイントを使用
           OTEL_EXPORTER_OTLP_ENDPOINT: !Sub https://xray.${AWS::Region}.amazonaws.com
-          # X-RayのトレースIDフォーマットを使用
           OTEL_PROPAGATORS: xray
-          # VaporのLogLevelをDEBUGに設定
           LOG_LEVEL: DEBUG
-          # Application Signals用の設定
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
           OTEL_RESOURCE_ATTRIBUTES: service.name=QueryServer
       Policies:
         - AWSXRayDaemonWriteAccess
-        # Application Signalsでメトリクスを送信するための追加権限
         - Statement:
           - Effect: Allow
             Action:

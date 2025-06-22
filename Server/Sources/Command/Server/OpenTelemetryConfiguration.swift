@@ -27,7 +27,6 @@ enum OpenTelemetryConfiguration {
             if customEndpoint.starts(with: "https://xray.")
                 && customEndpoint.contains(".amazonaws.com")
             {
-                // X-RayのOTLPエンドポイントが指定された場合
                 spanExporter = try await AWSXRayOTLPExporter(
                     endpoint: URL(string: customEndpoint)!,
                     resource: resource,
@@ -35,21 +34,16 @@ enum OpenTelemetryConfiguration {
                 )
                 print("🔧 X-Ray exporter configured: \(customEndpoint)")
             } else {
-                // カスタムエンドポイント（ローカルJaegerなど）
-                // 現時点では標準出力エクスポーターを使用
                 spanExporter = StdoutSpanExporter(
                     isDebug: true
                 )
                 print("🔧 Stdout exporter configured (custom endpoint not supported)")
             }
         } else if isLambda {
-            // Lambda環境ではX-RayのOTLPエンドポイントを使用
             spanExporter = try await AWSXRayOTLPExporter(
                 resource: resource, eventLoopGroup: eventLoopGroup)
             print("🔧 X-Ray exporter configured for Lambda")
         } else {
-            // ローカル開発環境のデフォルト
-            // 現時点では標準出力エクスポーターを使用
             spanExporter = StdoutSpanExporter(
                 isDebug: true
             )
