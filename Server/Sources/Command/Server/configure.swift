@@ -42,7 +42,7 @@ func configure(_ app: Application) async throws {
     // ================================
     app.logger.debug("🔧 Configuring OpenTelemetry...")
     let otlpEndpoint = Environment.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-    let serviceName = Environment.get("AWS_LAMBDA_FUNCTION_NAME") ?? "command-server"
+    let serviceName = "CommandServer"  // 固定のサービス名を使用
 
     try await OpenTelemetryConfiguration.configureOpenTelemetry(
         serviceName: serviceName,
