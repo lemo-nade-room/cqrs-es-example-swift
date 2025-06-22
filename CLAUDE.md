@@ -452,17 +452,18 @@ aws codepipeline get-pipeline-state \
 
 ### X-Rayトレース問題の詳細な調査結果（2025年1月）
 
-#### 確認できた事実
+#### ✅ 解決：X-Rayトレースが正常に動作
+
 1. **X-Ray APIへの送信は成功している**
    - HTTP 200レスポンスを受信
    - 認証（SigV4）は正しく動作
-   - リクエストボディは正しくシリアライズされている（837バイト等）
+   - リクエストボディは正しくシリアライズされている
 
-2. **リソース属性の設定**
+2. **リソース属性の設定（修正後）**
    ```
    🏷️ Resource attributes:
+   - service.name: CommandServer
    - service.version: 1.0.0
-   - service.name: Stage-CommandServerFunction-fpqdU2iwONXY
    - deployment.environment: production
    ```
 
@@ -470,28 +471,41 @@ aws codepipeline get-pipeline-state \
    - 各スパンには7つの属性が含まれている
    - HTTPメソッド、URL、ステータスコード等が記録されている
 
-#### トレースが表示されない根本原因の仮説
+#### 解決のための重要な修正
 
-1. **トレースIDフォーマットの問題**
-   - X-Rayは`1-TIMESTAMP-UNIQUEID`形式を期待（例：`1-6857a7ff-512dd70e04bb82eb2d9c0e79`）
-   - OpenTelemetryは16バイトのバイナリ形式を使用
-   - 変換時にX-Rayのトレースヘッダーとの整合性が取れていない可能性
+1. **service.nameの固定化**
+   - 修正前：Lambda関数名（`Stage-CommandServerFunction-fpqdU2iwONXY`）を使用
+   - 修正後：固定値`"CommandServer"`を使用
+   - configure.swift: `let serviceName = "CommandServer"  // 固定のサービス名を使用`
 
-2. **service.nameの不一致**
-   - Lambda関数名がservice.nameとして使用されていた
-   - Application Signalsが期待するサービス名と異なる可能性
-   - 修正：固定値"CommandServer"を使用するよう変更
+2. **X-Ray APIでのトレース確認**
+   ```bash
+   aws xray get-trace-summaries --region ap-northeast-1 \
+     --start-time $(date -u -d '10 minutes ago' +%s) \
+     --end-time $(date -u +%s) \
+     --query "TraceSummaries[?contains(Id, 'TRACE_ID_PREFIX')]"
+   ```
 
-3. **OTLP APIとX-Rayの統合問題**
-   - X-Ray OTLP APIはまだ新しい機能
-   - CloudWatch Logsへの書き込み権限は設定済みだが、実際の統合に問題がある可能性
-   - `/aws/spans`ロググループが作成されていない
+3. **Application Signalsの正常動作**
+   - `aws.local.service`: CommandServer
+   - `aws.local.operation`: GET /Stage/command/v1/healthcheck
+   - `aws.local.environment`: production
+   - Lambda関数のメトリクスと統合されて表示
+
+#### トレースの詳細
+
+X-Rayで確認できるトレース情報：
+- **トレースID形式**: `1-TIMESTAMP-UNIQUEID`（例：`1-6857b391-631bb9f008efb71d78c05f1e`）
+- **複数のスパン**:
+  - GET /Stage/command/v1/healthcheck（アプリケーション）
+  - Lambda関数の実行環境（Initialization、Invocation、Overhead）
+- **サービスマップ**: CommandServerとLambda関数が正しく関連付けられて表示
 
 #### デバッグ時の確認ポイント
 
 1. **詳細ログの活用**
    - リソース属性とスパン属性の完全な出力
-   - X-Ray APIレスポンスボディの確認（現在は空）
+   - X-Ray APIレスポンスの確認
    - Fire-and-forgetパターンの非同期処理の結果確認
 
 2. **Lambda実行環境の特性**
@@ -499,9 +513,9 @@ aws codepipeline get-pipeline-state \
    - Task.detachedの処理がLambda関数終了前に完了しない場合がある
    - ログストリームが複数に分かれる可能性
 
-3. **今後の対応案**
-   - X-Ray SDKの直接使用を検討
-   - Application Signalsの代わりに従来のX-Ray統合を試す
-   - OTEL Collectorをサイドカーとして配置する方法を検討
+3. **トレース送信の成功確認**
+   - CloudWatchログで`✅ Exported N spans to X-Ray successfully`を確認
+   - X-Ray APIコマンドでトレースサマリーを取得
+   - X-Rayコンソールでサービスマップとトレース詳細を確認
 
 
