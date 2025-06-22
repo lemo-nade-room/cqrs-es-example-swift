@@ -450,4 +450,58 @@ aws codepipeline get-pipeline-state \
 - Task.detachedで非同期送信を行うが、Lambda関数の実行が終了すると処理が中断される可能性がある
 - Fire-and-forgetパターンのため、送信結果の確認は後続のログで行う必要がある
 
+### X-Rayトレース問題の詳細な調査結果（2025年1月）
+
+#### 確認できた事実
+1. **X-Ray APIへの送信は成功している**
+   - HTTP 200レスポンスを受信
+   - 認証（SigV4）は正しく動作
+   - リクエストボディは正しくシリアライズされている（837バイト等）
+
+2. **リソース属性の設定**
+   ```
+   🏷️ Resource attributes:
+   - service.version: 1.0.0
+   - service.name: Stage-CommandServerFunction-fpqdU2iwONXY
+   - deployment.environment: production
+   ```
+
+3. **スパン属性**
+   - 各スパンには7つの属性が含まれている
+   - HTTPメソッド、URL、ステータスコード等が記録されている
+
+#### トレースが表示されない根本原因の仮説
+
+1. **トレースIDフォーマットの問題**
+   - X-Rayは`1-TIMESTAMP-UNIQUEID`形式を期待（例：`1-6857a7ff-512dd70e04bb82eb2d9c0e79`）
+   - OpenTelemetryは16バイトのバイナリ形式を使用
+   - 変換時にX-Rayのトレースヘッダーとの整合性が取れていない可能性
+
+2. **service.nameの不一致**
+   - Lambda関数名がservice.nameとして使用されていた
+   - Application Signalsが期待するサービス名と異なる可能性
+   - 修正：固定値"CommandServer"を使用するよう変更
+
+3. **OTLP APIとX-Rayの統合問題**
+   - X-Ray OTLP APIはまだ新しい機能
+   - CloudWatch Logsへの書き込み権限は設定済みだが、実際の統合に問題がある可能性
+   - `/aws/spans`ロググループが作成されていない
+
+#### デバッグ時の確認ポイント
+
+1. **詳細ログの活用**
+   - リソース属性とスパン属性の完全な出力
+   - X-Ray APIレスポンスボディの確認（現在は空）
+   - Fire-and-forgetパターンの非同期処理の結果確認
+
+2. **Lambda実行環境の特性**
+   - コールドスタート時は接続に時間がかかる
+   - Task.detachedの処理がLambda関数終了前に完了しない場合がある
+   - ログストリームが複数に分かれる可能性
+
+3. **今後の対応案**
+   - X-Ray SDKの直接使用を検討
+   - Application Signalsの代わりに従来のX-Ray統合を試す
+   - OTEL Collectorをサイドカーとして配置する方法を検討
+
 
