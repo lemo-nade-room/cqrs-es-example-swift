@@ -153,6 +153,23 @@ Environment:
    - OpenAPIとVaporの統合における制約
    - AWS X-Rayでは問題なく動作することを確認済み
 
+### Vaporとトレーシングの統合
+1. **Vapor標準機能の活用**
+   - VaporのTracingMiddlewareを使用（カスタム実装は不要）
+   - Request.serviceContextが標準で提供されている
+   - ServiceContext.withValueでコンテキスト伝播を実現
+   
+2. **X-Rayヘッダーの処理**
+   - InstrumentationSystem.Instrumentのextractメソッドで実装
+   - Extractorプロトコルを使用してヘッダーから値を取得
+   - キャストではなくExtractorのメソッドを使用すること
+   
+3. **ミドルウェアの順序**
+   ```swift
+   app.middleware.use(TracingMiddleware())  // Vaporの標準
+   app.middleware.use(VaporRequestMiddleware())  // ServiceContext伝播用
+   ```
+
 ### デバッグログのベストプラクティス
 - 絵文字を効果的に使用（🚀起動、✅成功、❌エラー、📦バッチ処理など）
 - 1行で情報を集約して可読性向上
