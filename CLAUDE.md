@@ -55,6 +55,12 @@ Lambdaにデプロイされるように設計された、独立したコマン�
 - エラー例: `The OTLP API is supported with CloudWatch Logs as a Trace Segment Destination.` (400 InvalidRequestException)
 - CloudWatch LogsリソースポリシーでX-Rayサービスからのアクセスを許可する必要があります（Terraformで自動設定済み）
 
+#### CloudWatch Logsリソースポリシーの注意点
+
+- X-Rayは実際には`aws/spans`ロググループに書き込むため、ポリシーでこれを許可する必要がある
+- 初回は`aws/xray/*`パターンでは不十分で、`AccessDeniedException`が発生する
+- 現在は`resources = ["*"]`で全てのロググループへのアクセスを許可している
+
 #### 手動設定方法
 
 Terraformでリソースポリシーを適用した後、以下のコマンドを一度実行してください（リージョンごとに必要）：
@@ -63,6 +69,14 @@ Terraformでリソースポリシーを適用した後、以下のコマンド�
 aws xray update-trace-segment-destination \
   --destination CloudWatchLogs \
   --region ap-northeast-1
+```
+
+成功すると以下のレスポンスが返ります：
+```json
+{
+    "Destination": "CloudWatchLogs",
+    "Status": "PENDING"
+}
 ```
 
 この設定は永続的で、一度設定すればそのリージョンの全てのLambda関数に適用されます。
@@ -181,6 +195,9 @@ graph LR
 
 #### デプロイ前の確認事項
 
+- [ ] GitHubとのCodeStar Connection作成（接続名: `github`）
+- [ ] Terraform適用（CloudWatch Logsポリシー含む）
+- [ ] X-Ray UpdateTraceSegmentDestination実行
 - [ ] `swift build`が成功するか
 - [ ] `swift test`が成功するか
 - [ ] Dockerfileが正しくビルドできるか
@@ -194,7 +211,21 @@ graph LR
 - **X-Rayトレース**: ✅ 実装完了（OTLP/HTTP + SigV4認証）
 - **mainブランチpush**: ✅ 安全（自動デプロイされます）
 
-詳細は`AWS_CD_STATUS.md`を参照してください。
+#### パイプライン状態の確認
+
+```bash
+# パイプライン全体の状態
+aws codepipeline get-pipeline-state \
+  --name stage-deploy-pipeline \
+  --region ap-northeast-1
+
+# 各ステージの状態を簡潔に表示
+aws codepipeline get-pipeline-state \
+  --name stage-deploy-pipeline \
+  --region ap-northeast-1 \
+  --output json | jq -r '.stageStates[] | "\(.stageName): \(.latestExecution.status // "N/A")"'
+```
+
 
 ### Docker
 
