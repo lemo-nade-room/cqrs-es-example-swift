@@ -54,8 +54,9 @@ RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \;
 
 # Copy any resources from the build context if they exist
-COPY --from=build /build/Public ./Public || true
-COPY --from=build /build/Resources ./Resources || true
+# Note: These are copied from the build context, not from the build stage
+RUN [ -d /build/Public ] && cp -R /build/Public ./ || true
+RUN [ -d /build/Resources ] && cp -R /build/Resources ./ || true
 
 # Ensure resources are not writable
 RUN [ -d ./Public ] && chmod -R a-w ./Public || true
