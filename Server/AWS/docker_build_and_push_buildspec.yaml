@@ -4,19 +4,60 @@ env:
   shell: bash
   exported-variables:
     - IMAGE_URI
+    - BUILD_SKIPPED
 
 phases:
+  install:
+    commands:
+      # Enable BuildKit
+      - export DOCKER_BUILDKIT=1
+      - export COMPOSE_DOCKER_CLI_BUILD=1
+      
   pre_build:
     commands:
+      - echo "Checking for changes in $SERVICE_NAME..."
+      - |
+        # Get the list of changed files from the last successful build
+        if [ -n "$CODEBUILD_RESOLVED_SOURCE_VERSION" ]; then
+          CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD || echo "")
+          echo "Changed files: $CHANGED_FILES"
+          
+          # Check if any relevant files changed
+          RELEVANT_CHANGES=false
+          if echo "$CHANGED_FILES" | grep -E "(Server/Sources/$SERVICE_NAME/|Server/Package\.swift|Server/Package\.resolved|Server/AWS/)"; then
+            RELEVANT_CHANGES=true
+          fi
+          
+          if [ "$RELEVANT_CHANGES" = "false" ]; then
+            echo "No changes detected for $SERVICE_NAME. Skipping build."
+            export BUILD_SKIPPED=true
+            # Fetch existing image URI
+            export IMAGE_URI="$REPOSITORY_URL:latest"
+            exit 0
+          fi
+        fi
+      
+      - export BUILD_SKIPPED=false
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
+      - export CACHE_REF="$REPOSITORY_URL:cache"
 
   build:
     commands:
-      - docker build --file "$DOCKERFILE_PATH" --tag "$REPOSITORY_URL:$TAG" ./Server
+      - |
+        docker buildx create --use --name mybuilder --driver docker-container || true
+        docker buildx build \
+          --platform linux/arm64 \
+          --file "$DOCKERFILE_PATH" \
+          --cache-from type=registry,ref=$CACHE_REF \
+          --cache-to type=registry,ref=$CACHE_REF,mode=max \
+          --tag "$REPOSITORY_URL:$TAG" \
+          --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --push \
+          --progress=plain \
+          ./Server
 
   post_build:
     commands:
-      - docker push "$REPOSITORY_URL:$TAG"
       - |
         DIGEST=$(aws ecr describe-images \
           --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
@@ -24,7 +65,9 @@ phases:
           --query 'imageDetails[0].imageDigest' --output text)
       - export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
       - echo "IMAGE_URI=$IMAGE_URI"
+      - echo "Build completed for $SERVICE_NAME"
 
 cache:
   modes:
     - LOCAL_DOCKER_LAYER_CACHE
+    - LOCAL_SOURCE_CACHE
