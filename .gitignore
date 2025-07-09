@@ -63,3 +63,5 @@ fastlane/test_output
 
 .env*
 .claude/settings.local.json
+
+CONTEXT.md
