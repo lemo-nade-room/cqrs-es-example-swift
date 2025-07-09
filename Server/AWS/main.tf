@@ -266,7 +266,7 @@ resource "aws_codepipeline" "stage_deploy" {
 }
 
 resource "aws_s3_bucket" "stage_deploy_codepipeline_bucket" {
-  bucket = "stage-deploy-codepipeline-bucket"
+  bucket = "stage-deploy-codepipeline-bucket-983760593510"
 }
 
 resource "aws_codebuild_project" "sam_package" {
