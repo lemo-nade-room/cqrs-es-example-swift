@@ -15,6 +15,7 @@ services:
       - '.:/claude/workspace'
       - '${HOME}/.claude:/claude/.claude'
       - '${HOME}/.claude.json:/claude/.claude.json'
+      - '${HOME}/.gitconfig:/claude/.gitconfig'
       - '/var/run/docker.sock:/var/run/docker.sock'
       - 'server_build_cache:/claude/workspace/Server/.build'
 
