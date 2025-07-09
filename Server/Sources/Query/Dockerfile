@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # Copy only source code to avoid cache invalidation from other changes
 COPY Sources ./Sources
+# Copy test directories to satisfy Package.swift dependencies
+COPY Tests ./Tests
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 # N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
