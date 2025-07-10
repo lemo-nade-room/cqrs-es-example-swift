@@ -62,7 +62,7 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 # Run image
 # ================================
-FROM --platform=linux/arm64 public.ecr.aws/amazonlinux/amazonlinux:2
+FROM --platform=linux/arm64 public.ecr.aws/lambda/provided:al2-arm64
 
 # Lambda Web Adapter - copy to extensions directory with proper ownership
 COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
@@ -72,8 +72,6 @@ RUN chmod +x /opt/extensions/lambda-adapter
 RUN yum update -y && \
     yum install -y \
       jemalloc \
-      ca-certificates \
-      tzdata \
       openssl \
       libcurl \
       libxml2 \

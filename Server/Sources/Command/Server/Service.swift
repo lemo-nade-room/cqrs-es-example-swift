@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server v6 - Amazon Linux 2")))
+        return .ok(.init(body: .plainText("Command Server v7 - Lambda AL2")))
     }
 }
 
