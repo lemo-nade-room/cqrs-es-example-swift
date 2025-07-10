@@ -658,14 +658,6 @@ resource "aws_codepipeline" "command_deploy" {
           {
             name  = "QUERY_BUILD_SKIPPED"
             value = "true"
-          },
-          {
-            name  = "COMMAND_SERVER_FUNCTION_IMAGE_URI"
-            value = "#{CommandBuild.IMAGE_URI}"
-          },
-          {
-            name  = "QUERY_SERVER_FUNCTION_IMAGE_URI"
-            value = aws_ecr_repository.query_server_function_repository.repository_url
           }
         ])
       }
@@ -776,14 +768,6 @@ resource "aws_codepipeline" "query_deploy" {
           {
             name  = "QUERY_BUILD_SKIPPED"
             value = "#{QueryBuild.BUILD_SKIPPED}"
-          },
-          {
-            name  = "COMMAND_SERVER_FUNCTION_IMAGE_URI"
-            value = aws_ecr_repository.command_server_function_repository.repository_url
-          },
-          {
-            name  = "QUERY_SERVER_FUNCTION_IMAGE_URI"
-            value = "#{QueryBuild.IMAGE_URI}"
           }
         ])
       }
