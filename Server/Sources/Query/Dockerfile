@@ -60,8 +60,8 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 FROM public.ecr.aws/ubuntu/ubuntu:noble
 
-# Lambda Web Adapter - simplified copy
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/
+# Lambda Web Adapter - copy with exact filename
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # Make sure all system packages are up to date, and install only essential packages.
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
