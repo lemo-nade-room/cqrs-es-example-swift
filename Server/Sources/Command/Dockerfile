@@ -62,22 +62,22 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 # Run image
 # ================================
-FROM --platform=linux/arm64 public.ecr.aws/amazonlinux/amazonlinux:2
+FROM --platform=linux/arm64 ubuntu:22.04
 
 # Lambda Web Adapter - copy to extensions directory with proper ownership
 COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 RUN chmod +x /opt/extensions/lambda-adapter
 
 # Install runtime dependencies
-RUN yum update -y && \
-    yum install -y \
-      jemalloc \
+RUN apt-get update && \
+    apt-get install -y \
+      libjemalloc2 \
       ca-certificates \
       tzdata \
-      openssl \
-      libcurl \
+      libssl3 \
+      libcurl4 \
       libxml2 \
-    && yum clean all
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /var/task
