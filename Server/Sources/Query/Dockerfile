@@ -1,35 +1,16 @@
 # ================================
 # Build image
 # ================================
-# Use the same base as runtime for GLIBC compatibility
-FROM --platform=linux/arm64 public.ecr.aws/amazonlinux/amazonlinux:2 AS build
+# Use Amazon Linux 2 based Swift image for compatibility
+FROM public.ecr.aws/docker/library/swift:6.1-amazonlinux2 AS build
 
-# Install Swift toolchain
+# Install OS updates and build dependencies
 RUN yum update -y && \
     yum install -y \
-    git \
-    gcc-c++ \
-    libcurl-devel \
-    libedit-devel \
-    libuuid-devel \
-    libxml2-devel \
-    ncurses-devel \
     openssl-devel \
-    python3 \
-    sqlite-devel \
-    tzdata \
-    unzip \
-    wget \
-    which \
+    libcurl-devel \
+    libxml2-devel \
     && yum clean all
-
-# Download and install Swift 6.1
-RUN wget https://download.swift.org/swift-6.1-release/amazonlinux2-aarch64/swift-6.1-RELEASE/swift-6.1-RELEASE-amazonlinux2-aarch64.tar.gz && \
-    tar -xzf swift-6.1-RELEASE-amazonlinux2-aarch64.tar.gz -C / --strip-components=1 && \
-    rm swift-6.1-RELEASE-amazonlinux2-aarch64.tar.gz
-
-# Add Swift to PATH
-ENV PATH="/usr/bin:${PATH}"
 
 # Set up a build area
 WORKDIR /build
