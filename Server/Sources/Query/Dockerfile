@@ -58,30 +58,25 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 # Run image
 # ================================
-FROM public.ecr.aws/ubuntu/ubuntu:noble
+# Use AWS Lambda base image for better compatibility
+FROM public.ecr.aws/lambda/provided:al2023-arm64
 
-# Lambda Web Adapter - copy with exact filename
+# Lambda Web Adapter - copy to extensions directory
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
-# Make sure all system packages are up to date, and install only essential packages.
-RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
-    && apt-get -q update \
-    && apt-get -q dist-upgrade -y \
-    && apt-get -q install -y \
-      libjemalloc2 \
-      ca-certificates \
-      tzdata \
-# If your app or its dependencies import FoundationNetworking, also install `libcurl4`.
-      # libcurl4 \
-# If your app or its dependencies import FoundationXML, also install `libxml2`.
-      # libxml2 \
-    && rm -r /var/lib/apt/lists/*
+# Install necessary runtime dependencies for Swift
+RUN dnf install -y \
+      libxml2 \
+      libcurl \
+      openssl \
+      jemalloc \
+    && dnf clean all
 
-# Switch to the new home directory
-WORKDIR /app
+# Lambda expects executables in /var/task
+WORKDIR /var/task
 
 # Copy built executable and any staged resources from builder
-COPY --from=build /staging /app
+COPY --from=build /staging /var/task
 
 # Provide configuration needed by the built-in crash reporter and some sensible default behaviors.
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
@@ -94,6 +89,7 @@ ENV AWS_LWA_READINESS_CHECK_PATH=/query/healthcheck
 # Let Docker bind to port 3001
 EXPOSE 3001
 
-# Start the Vapor service when the image is run, default to listening on 3001 in production environment
-ENTRYPOINT ["/app/QueryServer"]
+# Lambda will start our app through the Web Adapter
+# The adapter will invoke our app with these parameters
+ENTRYPOINT ["/var/task/QueryServer"]
 CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
