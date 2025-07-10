@@ -29,7 +29,8 @@ phases:
           --tag "$REPOSITORY_URL:$TAG" \
           --cache-from "type=registry,ref=$CACHE_IMAGE" \
           --cache-to   "type=registry,ref=$CACHE_IMAGE,mode=max" \
-          --output     "type=registry,push=true" \
+          --provenance=false --sbom=false \
+          --output     "type=registry,push=true,oci-mediatypes=false" \
           ./Server
 
   post_build:
