@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server v9 - BuildKit Cache")))
+        return .ok(.init(body: .plainText("Command Server v8 - Fixed ENV")))
     }
 }
 
