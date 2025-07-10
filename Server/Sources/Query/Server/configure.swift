@@ -2,7 +2,7 @@ import Vapor
 
 func configure(_ app: Application) async throws {
     app.get("query", "healthcheck") { _ in
-        "Query Running - v3 (ImageConfig Fix)"
+        "Query Running - v2 (Fast Deploy)"
     }
 
     app.get("Stage", "query", "healthcheck") { _ in
