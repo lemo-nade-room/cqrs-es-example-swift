@@ -43,7 +43,6 @@ Resources:
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
           OTEL_RESOURCE_ATTRIBUTES: service.name=CommandServer
-          PORT: 3001
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:
@@ -73,7 +72,6 @@ Resources:
           OTEL_METRICS_EXPORTER: none
           OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
           OTEL_RESOURCE_ATTRIBUTES: service.name=QueryServer
-          PORT: 3001
       Policies:
         - AWSXRayDaemonWriteAccess
         - Statement:

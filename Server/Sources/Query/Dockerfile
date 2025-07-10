@@ -81,7 +81,10 @@ COPY --from=build /staging /var/task
 # Provide configuration needed by the built-in crash reporter and some sensible default behaviors.
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
 
-# Lambda Web Adapter will auto-configure port and paths
+# Lambda Web Adapter Settings
+ENV PORT=3001
+ENV AWS_LWA_PORT=3001
+ENV AWS_LWA_READINESS_CHECK_PATH=/query/healthcheck
 
 # Let Docker bind to port 3001
 EXPOSE 3001
