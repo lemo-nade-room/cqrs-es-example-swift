@@ -64,9 +64,8 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 FROM public.ecr.aws/ubuntu/ubuntu:noble
 
-# Lambda Web Adapter
-COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN chmod +x /opt/extensions/lambda-adapter
+# Lambda Web Adapter - simplified copy
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/
 
 # Make sure all system packages are up to date, and install only essential packages.
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -91,8 +90,8 @@ COPY --from=build /staging /app
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
 
 # Lambda Web Adapter Settings
+ENV PORT=3001
 ENV AWS_LWA_PORT=3001
-ENV AWS_LWA_INVOKE_MODE=buffered
 
 # Let Docker bind to port 3001
 EXPOSE 3001
