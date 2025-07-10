@@ -64,8 +64,8 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 FROM --platform=linux/arm64 ubuntu:22.04
 
-# Lambda Web Adapter - copy to extensions directory
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+# Lambda Web Adapter - copy to extensions directory with proper ownership
+COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # Install runtime dependencies
 RUN apt-get update && \

@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server v3 - ImageConfig Removed")))
+        return .ok(.init(body: .plainText("Command Server v4 - LWA chown fix")))
     }
 }
 
