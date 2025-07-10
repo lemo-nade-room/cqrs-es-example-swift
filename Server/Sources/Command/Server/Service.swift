@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server v2 - Adapter Path Fix")))
+        return .ok(.init(body: .plainText("Command Server Working!")))
     }
 }
 
