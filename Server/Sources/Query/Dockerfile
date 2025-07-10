@@ -34,10 +34,13 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --product QueryServer \
             --static-swift-stdlib \
             -Xlinker -ljemalloc && \
-    cp "$(swift build --package-path /build -c release --show-bin-path)/QueryServer" /staging/QueryServer
+    cp "$(swift build --package-path /build -c release --show-bin-path)/QueryServer" /build/QueryServer
 
 # Switch to the staging area
 WORKDIR /staging
+
+# Copy main executable to staging area
+RUN cp /build/CommandServer" ./
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
