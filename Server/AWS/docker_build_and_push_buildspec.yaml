@@ -44,25 +44,19 @@ phases:
   build:
     commands:
       - |
-        # Pull cache image if exists (ignore errors)
-        docker pull $CACHE_REF || true
+        # Use buildx for advanced caching features
+        docker buildx create --use --name lambda-builder --driver docker-container || true
         
-        # Build with standard docker build for Lambda compatibility
-        docker build \
+        # Build with ECR cache for Lambda (single platform, OCI format)
+        docker buildx build \
           --platform linux/arm64 \
           --file "$DOCKERFILE_PATH" \
-          --cache-from $CACHE_REF \
+          --cache-from type=registry,ref=$CACHE_REF \
+          --cache-to type=registry,ref=$CACHE_REF,mode=max \
           --tag "$REPOSITORY_URL:$TAG" \
           --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --push \
           ./Server
-        
-        # Push the image
-        docker push "$REPOSITORY_URL:$TAG"
-        docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
-        
-        # Also push as cache tag for next builds
-        docker tag "$REPOSITORY_URL:$TAG" $CACHE_REF
-        docker push $CACHE_REF
 
   post_build:
     commands:

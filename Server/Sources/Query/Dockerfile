@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ================================
 # Build image
 # ================================
@@ -17,7 +18,9 @@ WORKDIR /build
 # as long as your Package.swift/Package.resolved
 # files do not change.
 COPY Package.* ./
-RUN swift package resolve \
+RUN --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/build/.build \
+    swift package resolve \
         $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
 
 # Copy only source code to avoid cache invalidation from other changes
@@ -25,9 +28,12 @@ COPY Sources ./Sources
 # Copy test directories to satisfy Package.swift dependencies
 COPY Tests ./Tests
 
-# Build the application and copy to staging
+# Build the application and copy to staging in one step
+# This ensures the binary is available after the cache mount is unmounted
 WORKDIR /staging
-RUN cd /build && \
+RUN --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/build/.build \
+    cd /build && \
     swift build -c release \
         --product QueryServer \
         --static-swift-stdlib \
