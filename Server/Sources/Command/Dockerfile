@@ -1,16 +1,16 @@
 # ================================
 # Build image
 # ================================
-FROM public.ecr.aws/docker/library/swift:6.1-noble AS build
+# Use Amazon Linux 2 based Swift image for compatibility
+FROM public.ecr.aws/docker/library/swift:6.1-amazonlinux2 AS build
 
-# Install OS updates
-RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
-    && apt-get -q update \
-    && apt-get -q dist-upgrade -y \
-    && apt-get install -y \
-    libssl-dev \
-    openssl \
-    pkg-config
+# Install OS updates and build dependencies
+RUN yum update -y && \
+    yum install -y \
+    openssl-devel \
+    libcurl-devel \
+    libxml2-devel \
+    && yum clean all
 
 # Set up a build area
 WORKDIR /build
