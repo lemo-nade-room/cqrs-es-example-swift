@@ -44,7 +44,6 @@ phases:
   build:
     commands:
       - |
-        # Build for Lambda (single platform, OCI format)
         docker buildx create --use --name mybuilder --driver docker-container || true
         docker buildx build \
           --platform linux/arm64 \
@@ -53,8 +52,6 @@ phases:
           --cache-to type=registry,ref=$CACHE_REF,mode=max \
           --tag "$REPOSITORY_URL:$TAG" \
           --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
-          --provenance=false \
-          --sbom=false \
           --push \
           --progress=plain \
           ./Server
