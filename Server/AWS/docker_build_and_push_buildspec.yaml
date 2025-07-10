@@ -44,18 +44,19 @@ phases:
   build:
     commands:
       - |
-        # Build for Lambda (single platform, OCI format)
-        # Build and tag with multiple tags
-        docker build \
+        # Use buildx for advanced caching features
+        docker buildx create --use --name lambda-builder --driver docker-container || true
+        
+        # Build with ECR cache for Lambda (single platform, OCI format)
+        docker buildx build \
           --platform linux/arm64 \
           --file "$DOCKERFILE_PATH" \
+          --cache-from type=registry,ref=$CACHE_REF \
+          --cache-to type=registry,ref=$CACHE_REF,mode=max \
           --tag "$REPOSITORY_URL:$TAG" \
           --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --push \
           ./Server
-        
-        # Push all tags
-        docker push "$REPOSITORY_URL:$TAG"
-        docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
 
   post_build:
     commands:
