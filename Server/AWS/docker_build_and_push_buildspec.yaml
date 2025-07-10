@@ -31,49 +31,70 @@ phases:
           if [ "$RELEVANT_CHANGES" = "false" ]; then
             echo "No changes detected for $SERVICE_NAME. Skipping build."
             export BUILD_SKIPPED=true
-            # Fetch existing image URI
-            export IMAGE_URI="$REPOSITORY_URL:latest"
-            exit 0
+          else
+            export BUILD_SKIPPED=false
           fi
+        else
+          export BUILD_SKIPPED=false
         fi
       
-      - export BUILD_SKIPPED=false
-      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
-      - export CACHE_REF="$REPOSITORY_URL:cache"
+      - |
+        if [ "$BUILD_SKIPPED" = "false" ]; then
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
+          export CACHE_REF="$REPOSITORY_URL:cache"
+        fi
 
   build:
     commands:
       - |
-        # Pull cache image if exists (ignore errors)
-        docker pull $CACHE_REF || true
-        
-        # Build with standard docker build for Lambda compatibility
-        docker build \
-          --platform linux/arm64 \
-          --file "$DOCKERFILE_PATH" \
-          --cache-from $CACHE_REF \
-          --tag "$REPOSITORY_URL:$TAG" \
-          --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
-          ./Server
-        
-        # Push the image
-        docker push "$REPOSITORY_URL:$TAG"
-        docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
-        
-        # Also push as cache tag for next builds
-        docker tag "$REPOSITORY_URL:$TAG" $CACHE_REF
-        docker push $CACHE_REF
+        if [ "$BUILD_SKIPPED" = "true" ]; then
+          echo "Build skipped. Using existing image."
+          # Get the latest image digest
+          DIGEST=$(aws ecr describe-images \
+            --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
+            --image-ids imageTag=$TAG \
+            --query 'imageDetails[0].imageDigest' --output text)
+          export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
+        else
+          # Pull cache image if exists (ignore errors)
+          docker pull $CACHE_REF || true
+          
+          # Build with standard docker build for Lambda compatibility
+          docker build \
+            --platform linux/arm64 \
+            --file "$DOCKERFILE_PATH" \
+            --cache-from $CACHE_REF \
+            --tag "$REPOSITORY_URL:$TAG" \
+            --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+            ./Server
+          
+          # Push the image
+          docker push "$REPOSITORY_URL:$TAG"
+          docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
+          
+          # Also push as cache tag for next builds
+          docker tag "$REPOSITORY_URL:$TAG" $CACHE_REF
+          docker push $CACHE_REF
+        fi
 
   post_build:
     commands:
       - |
-        DIGEST=$(aws ecr describe-images \
-          --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
-          --image-ids imageTag=$TAG \
-          --query 'imageDetails[0].imageDigest' --output text)
-      - export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
+        if [ "$BUILD_SKIPPED" = "false" ]; then
+          DIGEST=$(aws ecr describe-images \
+            --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
+            --image-ids imageTag=$TAG \
+            --query 'imageDetails[0].imageDigest' --output text)
+          export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
+        fi
       - echo "IMAGE_URI=$IMAGE_URI"
-      - echo "Build completed for $SERVICE_NAME"
+      - echo "BUILD_SKIPPED=$BUILD_SKIPPED"
+      - |
+        if [ "$BUILD_SKIPPED" = "true" ]; then
+          echo "Build was skipped for $SERVICE_NAME (no relevant changes)"
+        else
+          echo "Build completed for $SERVICE_NAME"
+        fi
 
 cache:
   modes:
