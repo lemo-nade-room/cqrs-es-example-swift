@@ -45,19 +45,6 @@ phases:
       - |
         if [ "$SHOULD_DEPLOY" = "true" ]; then
           echo "Packaging SAM application..."
-          echo "COMMAND_SERVER_FUNCTION_IMAGE_URI: $COMMAND_SERVER_FUNCTION_IMAGE_URI"
-          echo "QUERY_SERVER_FUNCTION_IMAGE_URI: $QUERY_SERVER_FUNCTION_IMAGE_URI"
-          
-          # Use default values if IMAGE_URI is not provided with digest
-          if [[ "$COMMAND_SERVER_FUNCTION_IMAGE_URI" != *"@sha256:"* ]] && [[ "$COMMAND_SERVER_FUNCTION_IMAGE_URI" != *":"* ]]; then
-            echo "Warning: COMMAND_SERVER_FUNCTION_IMAGE_URI does not contain tag or digest, using :latest"
-            COMMAND_SERVER_FUNCTION_IMAGE_URI="${COMMAND_SERVER_FUNCTION_IMAGE_URI}:latest"
-          fi
-          if [[ "$QUERY_SERVER_FUNCTION_IMAGE_URI" != *"@sha256:"* ]] && [[ "$QUERY_SERVER_FUNCTION_IMAGE_URI" != *":"* ]]; then
-            echo "Warning: QUERY_SERVER_FUNCTION_IMAGE_URI does not contain tag or digest, using :latest"
-            QUERY_SERVER_FUNCTION_IMAGE_URI="${QUERY_SERVER_FUNCTION_IMAGE_URI}:latest"
-          fi
-          
           sam package \
             --template-file template.yaml \
             --output-template-file packaged.yaml \
