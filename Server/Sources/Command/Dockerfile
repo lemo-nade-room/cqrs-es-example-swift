@@ -60,7 +60,7 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 # Run image
 # ================================
-FROM --platform=linux/arm64 public.ecr.aws/lambda/provided:al2-arm64
+FROM --platform=linux/arm64 public.ecr.aws/amazonlinux/amazonlinux:2
 
 # Lambda Web Adapter - copy to extensions directory with proper ownership
 COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
@@ -93,6 +93,5 @@ EXPOSE 3001
 RUN chmod +x /var/task/CommandServer
 
 # Lambda Web Adapter will start our app
-# Clear the default ENTRYPOINT from provided:al2 image
-ENTRYPOINT []
+# No ENTRYPOINT needed for Lambda Web Adapter
 CMD ["/var/task/CommandServer", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
