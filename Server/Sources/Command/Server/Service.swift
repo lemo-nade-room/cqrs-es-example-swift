@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server v5 - No ENTRYPOINT")))
+        return .ok(.init(body: .plainText("Command Server v6 - Amazon Linux 2")))
     }
 }
 
