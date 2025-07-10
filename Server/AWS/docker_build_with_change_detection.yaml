@@ -145,7 +145,4 @@ phases:
           echo "🎉 Build completed for $SERVICE_NAME"
         fi
 
-cache:
-  modes:
-    - LOCAL_DOCKER_LAYER_CACHE
-    - LOCAL_SOURCE_CACHE
+# Note: Docker layer caching is enabled at project level in main.tf
