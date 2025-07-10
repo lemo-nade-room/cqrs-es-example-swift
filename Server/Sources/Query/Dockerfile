@@ -6,7 +6,8 @@ FROM public.ecr.aws/docker/library/swift:6.1-noble AS build
 # Install OS updates
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
-    && apt-get -q dist-upgrade -y
+    && apt-get -q dist-upgrade -y \
+    && apt-get install -y libjemalloc-dev
 
 # Set up a build area
 WORKDIR /build
@@ -30,6 +31,7 @@ RUN cd /build && \
     swift build -c release \
         --product QueryServer \
         --static-swift-stdlib \
+        -Xlinker -ljemalloc \
         -Xswiftc -j8 \
         -Xswiftc -enable-batch-mode && \
     cp "$(swift build --package-path /build -c release --show-bin-path)/QueryServer" /staging/ || \
