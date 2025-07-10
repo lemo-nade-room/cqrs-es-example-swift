@@ -305,7 +305,7 @@ resource "aws_codebuild_project" "sam_package_command" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "Server/AWS/sam_package_with_detection.yaml"
+    buildspec = "Server/AWS/sam_package_conditional_buildspec.yaml"
   }
 }
 
@@ -344,7 +344,7 @@ resource "aws_codebuild_project" "sam_package_query" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "Server/AWS/sam_package_with_detection.yaml"
+    buildspec = "Server/AWS/sam_package_conditional_buildspec.yaml"
   }
 }
 
@@ -405,7 +405,7 @@ resource "aws_codebuild_project" "docker_build_command" {
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_2XLARGE"
+    compute_type                = "BUILD_GENERAL1_LARGE"
     image                       = "aws/codebuild/amazonlinux-aarch64-standard:3.0-25.03.03"
     type                        = "ARM_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
@@ -445,7 +445,7 @@ resource "aws_codebuild_project" "docker_build_command" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "Server/AWS/docker_build_with_change_detection.yaml"
+    buildspec = "Server/AWS/docker_build_and_push_buildspec.yaml"
   }
 }
 
@@ -466,7 +466,7 @@ resource "aws_codebuild_project" "docker_build_query" {
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_2XLARGE"
+    compute_type                = "BUILD_GENERAL1_LARGE"
     image                       = "aws/codebuild/amazonlinux-aarch64-standard:3.0-25.03.03"
     type                        = "ARM_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
@@ -506,7 +506,7 @@ resource "aws_codebuild_project" "docker_build_query" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "Server/AWS/docker_build_with_change_detection.yaml"
+    buildspec = "Server/AWS/docker_build_and_push_buildspec.yaml"
   }
 }
 
@@ -527,7 +527,7 @@ resource "aws_codebuild_project" "docker_build_and_push" {
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_2XLARGE"
+    compute_type                = "BUILD_GENERAL1_LARGE"
     image                       = "aws/codebuild/amazonlinux-aarch64-standard:3.0-25.03.03"
     type                        = "ARM_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
@@ -547,42 +547,7 @@ resource "aws_codebuild_project" "docker_build_and_push" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "Server/AWS/docker_build_with_change_detection.yaml"
-  }
-}
-
-# ================================
-# Change Detection Infrastructure
-# ================================
-# S3 bucket for storing last commit hash
-resource "aws_s3_bucket" "change_detection" {
-  bucket = "change-detection-bucket-983760593510"
-}
-
-resource "aws_s3_bucket_versioning" "change_detection" {
-  bucket = aws_s3_bucket.change_detection.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# DynamoDB table for tracking service changes
-resource "aws_dynamodb_table" "service_change_tracking" {
-  name         = "service-change-tracking"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "service_name"
-
-  attribute {
-    name = "service_name"
-    type = "S"
-  }
-
-  point_in_time_recovery {
-    enabled = true
-  }
-
-  tags = {
-    Name = "Service Change Tracking"
+    buildspec = "Server/AWS/docker_build_and_push_buildspec.yaml"
   }
 }
 
@@ -729,7 +694,7 @@ resource "aws_codepipeline" "command_deploy" {
         TemplatePath = "SAMPackageArtifact::packaged.yaml"
         ParameterOverrides = jsonencode({
           CommandServerFunctionImageUri = "#{CommandBuild.IMAGE_URI}"
-          QueryServerFunctionImageUri   = "${aws_ecr_repository.query_server_function_repository.repository_url}:latest"
+          QueryServerFunctionImageUri   = aws_ecr_repository.query_server_function_repository.repository_url
           ServerEnvironment             = "Staging"
         })
       }
@@ -846,7 +811,7 @@ resource "aws_codepipeline" "query_deploy" {
         RoleArn      = aws_iam_role.super_role.arn
         TemplatePath = "SAMPackageArtifact::packaged.yaml"
         ParameterOverrides = jsonencode({
-          CommandServerFunctionImageUri = "${aws_ecr_repository.command_server_function_repository.repository_url}:latest"
+          CommandServerFunctionImageUri = aws_ecr_repository.command_server_function_repository.repository_url
           QueryServerFunctionImageUri   = "#{QueryBuild.IMAGE_URI}"
           ServerEnvironment             = "Staging"
         })
