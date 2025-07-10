@@ -38,7 +38,7 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --product CommandServer \
             --static-swift-stdlib \
             -Xlinker -ljemalloc && \
-    cp "$(swift build --package-path /build -c release --show-bin-path)/CommandServer" /build/CommandServer
+    cp ./.build/release/CommandServer /build/CommandServer
 
 # Switch to the staging area
 WORKDIR /staging
