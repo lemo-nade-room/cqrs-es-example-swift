@@ -2,7 +2,7 @@ import Vapor
 
 func configure(_ app: Application) async throws {
     app.get("query", "healthcheck") { _ in
-        "Query Running - v11 (BuildKit Cache)"
+        "Query Running - v12 (Independent Deploy Test)"
     }
 
     app.get("Stage", "query", "healthcheck") { _ in
