@@ -44,18 +44,20 @@ phases:
   build:
     commands:
       - |
-        # Build for Lambda (single platform, simple format)
-        # Try without buildx first to see if image format is the issue
-        docker build \
+        # Build for Lambda (single platform, OCI format)
+        docker buildx create --use --name mybuilder --driver docker-container || true
+        docker buildx build \
           --platform linux/arm64 \
           --file "$DOCKERFILE_PATH" \
+          --cache-from type=registry,ref=$CACHE_REF \
+          --cache-to type=registry,ref=$CACHE_REF,mode=max \
           --tag "$REPOSITORY_URL:$TAG" \
           --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --provenance=false \
+          --sbom=false \
+          --push \
+          --progress=plain \
           ./Server
-        
-        # Push the images
-        docker push "$REPOSITORY_URL:$TAG"
-        docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
 
   post_build:
     commands:
