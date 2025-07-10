@@ -44,8 +44,8 @@ phases:
   build:
     commands:
       - |
-        # Build for Lambda (single platform, simple format)
-        # Try without buildx first to see if image format is the issue
+        # Build for Lambda (single platform, OCI format)
+        # Build and tag with multiple tags
         docker build \
           --platform linux/arm64 \
           --file "$DOCKERFILE_PATH" \
@@ -53,7 +53,7 @@ phases:
           --tag "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION" \
           ./Server
         
-        # Push the images
+        # Push all tags
         docker push "$REPOSITORY_URL:$TAG"
         docker push "$REPOSITORY_URL:$CODEBUILD_RESOLVED_SOURCE_VERSION"
 

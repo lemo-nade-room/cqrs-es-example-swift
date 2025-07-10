@@ -62,21 +62,23 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 # ================================
 # Run image
 # ================================
-# Use AWS Lambda base image for better compatibility
-FROM public.ecr.aws/lambda/provided:al2023-arm64
+FROM --platform=linux/arm64 ubuntu:22.04
 
 # Lambda Web Adapter - copy to extensions directory
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
-# Install necessary runtime dependencies for Swift
-RUN dnf install -y \
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+      libjemalloc2 \
+      ca-certificates \
+      tzdata \
+      libssl3 \
+      libcurl4 \
       libxml2 \
-      libcurl \
-      openssl \
-      jemalloc \
-    && dnf clean all
+    && rm -rf /var/lib/apt/lists/*
 
-# Lambda expects executables in /var/task
+# Set working directory
 WORKDIR /var/task
 
 # Copy built executable and any staged resources from builder
@@ -92,7 +94,9 @@ ENV AWS_LWA_PORT=3001
 # Let Docker bind to port 3001
 EXPOSE 3001
 
-# Lambda will start our app through the Web Adapter
-# The adapter will invoke our app with these parameters
+# Ensure the binary is executable
+RUN chmod +x /var/task/CommandServer
+
+# Lambda Web Adapter will start our app
 ENTRYPOINT ["/var/task/CommandServer"]
 CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
