@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ================================
 # Build image
 # ================================
@@ -17,18 +18,22 @@ WORKDIR /build
 # as long as your Package.swift/Package.resolved
 # files do not change.
 COPY ./Package.* ./
-RUN swift package resolve \
-        $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
+RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
+    --mount=type=cache,id=swift-build,target=/build/.build \
+    swift package resolve \
+            $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
 
 # Copy entire repo into container
 COPY . .
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 # N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
-RUN swift build -c release \
-        --product QueryServer \
-        --static-swift-stdlib \
-        -Xlinker -ljemalloc
+RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
+    --mount=type=cache,id=swift-build,target=/build/.build \
+    swift build -c release \
+            --product QueryServer \
+            --static-swift-stdlib \
+            -Xlinker -ljemalloc
 
 # Switch to the staging area
 WORKDIR /staging

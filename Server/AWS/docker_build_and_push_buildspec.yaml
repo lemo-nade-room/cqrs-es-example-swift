@@ -2,21 +2,37 @@ version: 0.2
 
 env:
   shell: bash
+  variables:
+    BUILDER_NAME: codebuild
+    CACHE_IMAGE: "$REPOSITORY_URL:cache"
   exported-variables:
     - IMAGE_URI
 
 phases:
+  install:
+    commands:
+      - docker buildx version || docker buildx install
+      - docker buildx create --name "$BUILDER_NAME" --use
+
   pre_build:
     commands:
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
+      - docker pull "$CACHE_IMAGE" || true
 
   build:
     commands:
-      - docker build --file "$DOCKERFILE_PATH" --tag "$REPOSITORY_URL:$TAG" ./Server
+      - |
+        docker buildx build \
+          --builder "$BUILDER_NAME" \
+          --file "$DOCKERFILE_PATH" \
+          --tag "$REPOSITORY_URL:$TAG" \
+          --cache-from "type=registry,ref=$CACHE_IMAGE" \
+          --cache-to   "type=registry,ref=$CACHE_IMAGE,mode=max" \
+          --output     "type=registry,push=true" \
+          ./Server
 
   post_build:
     commands:
-      - docker push "$REPOSITORY_URL:$TAG"
       - |
         DIGEST=$(aws ecr describe-images \
           --repository-name $(echo $REPOSITORY_URL | cut -d'/' -f2-) \
@@ -27,4 +43,4 @@ phases:
 
 cache:
   modes:
-    - LOCAL_DOCKER_LAYER_CACHE
+    - LOCAL_DOCKER_LAYER_CACHE   # ビルド途中のローカルキャッシュも拾う
