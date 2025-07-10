@@ -4,7 +4,6 @@ env:
   shell: bash
   variables:
     BUILDER_NAME: codebuild
-    CACHE_IMAGE: "$REPOSITORY_URL:cache"
   exported-variables:
     - IMAGE_URI
 
@@ -17,6 +16,7 @@ phases:
   pre_build:
     commands:
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REPOSITORY_URL"
+      - export CACHE_IMAGE="${REPOSITORY_URL}:cache"
       - docker pull "$CACHE_IMAGE" || true
 
   build:
@@ -40,7 +40,3 @@ phases:
           --query 'imageDetails[0].imageDigest' --output text)
       - export "IMAGE_URI=$REPOSITORY_URL@$DIGEST"
       - echo "IMAGE_URI=$IMAGE_URI"
-
-cache:
-  modes:
-    - LOCAL_DOCKER_LAYER_CACHE   # ビルド途中のローカルキャッシュも拾う
