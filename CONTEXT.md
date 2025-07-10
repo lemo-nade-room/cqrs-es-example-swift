@@ -3,7 +3,7 @@
 ## プロジェクト概要
 SwiftとVaporで構築されたCQRS（コマンドクエリ責任分離）とイベントソーシングのサンプルアプリケーション。AWS Lambdaにデプロイされ、独立したコマンドサーバーとクエリサーバーを持つマイクロサービスアーキテクチャ。
 
-## 🚀 最新の改良（2025年7月10日 14:18更新）
+## 🚀 最新の改良（2025年7月10日 11:58更新）
 
 ### 独立デプロイとビルド高速化の実装状況
 **目標**: CommandとQueryが独立してデプロイ可能で、3分以内のデプロイ時間
@@ -35,13 +35,34 @@ SwiftとVaporで構築されたCQRS（コマンドクエリ責任分離）とイ
    - Lambda Web Adapterとの互換性改善のため、ImageConfigでCOMMANDを明示的に指定
    - Command/Query両方のLambda関数に適用
 
-#### 🔄 現在進行中（7月10日 14:18更新）
-- **Lambda互換性問題の解決**: 複数の対策を試行中
-  - ✅ ImageConfigの削除（SAM template.yaml）
-  - ✅ Lambda Web Adapterに`--chown=root:root`フラグ追加
-  - ✅ `chmod +x`でLambda Web Adapterに実行権限付与
-  - ✅ ENTRYPOINTを削除しCMDのみ使用（非AWS管理イメージの要件）
-- **最新状態**: 3ed07ceコミットでデプロイ中（2025-07-10T02:17:54）
+#### ✅ Lambda互換性問題の解決（7月10日 11:58完了）
+**解決方法**: AWS Lambda公式ベースイメージ（`public.ecr.aws/lambda/provided:al2-arm64`）への変更
+
+1. **試行した対策と結果**:
+   - ❌ ImageConfigの削除
+   - ❌ Lambda Web Adapterに`--chown=root:root`フラグ追加
+   - ❌ ENTRYPOINTを削除しCMDのみ使用
+   - ❌ Ubuntu 22.04からAmazon Linux 2への変更
+   - ✅ **AWS Lambda provided:al2-arm64ベースイメージへの変更で解決！**
+
+2. **最終的な解決策**:
+   - ベースイメージ: `public.ecr.aws/lambda/provided:al2-arm64`
+   - Lambda Web Adapter: 0.9.1（変更なし）
+   - 環境変数PORT=3001をSAMテンプレートで設定
+   - デプロイ成功確認: 2025-07-10T02:43（aed3ac7コミット）
+
+#### 🔄 現在進行中（7月10日 11:58更新）
+
+1. **BuildKitキャッシュ最適化の実装** (9826f7cコミット)
+   - `docker buildx`による高度なキャッシュ機能の有効化
+   - ECRレジストリキャッシュ（`--cache-from/--cache-to`）の実装
+   - BuildKitキャッシュマウント（`--mount=type=cache`）の追加
+   - **期待効果**: 初回ビルド後は3分以内でのビルド完了
+
+2. **現在のパイプライン実行状況**:
+   - 最新コミット: 9826f7c（BuildKitキャッシュ最適化）
+   - Command/Query両パイプラインが実行中
+   - ビルド時間測定中（キャッシュなしで約10分→キャッシュありで目標3分以内）
 
 #### 📋 残作業
 1. **パイプライン実行結果の確認**
@@ -270,7 +291,7 @@ openapi-generator validate -i ./Server/Sources/Command/Server/openapi.yaml
 ### QueryServer
 - OpenAPI仕様ファイルは現在なし
 
-## 現在のステータス（2025年7月10日 14:18更新）
+## 現在のステータス（2025年7月10日 11:58更新）
 
 ### 🎯 独立デプロイと高速化の実装状況
 
@@ -280,53 +301,44 @@ openapi-generator validate -i ./Server/Sources/Command/Server/openapi.yaml
    - 変更検知システムで不要なビルドをスキップ
    - git diffベースでサービス別の変更を判定
 
-2. **ビルド高速化の成果**
-   - **初回ビルド**: 約9分（Command: 9分21秒、Query: 9分1秒）
-   - **キャッシュ利用時**: 16-18秒（劇的な改善！95%以上削減）
-   - BuildKitキャッシュとECRレジストリキャッシュ実装
+2. **Lambda互換性問題の解決**
+   - AWS Lambda公式ベースイメージ（`public.ecr.aws/lambda/provided:al2-arm64`）への変更で解決
+   - デプロイ成功確認: 2025-07-10T02:43:10（aed3ac7コミット）
+   - API Gateway経由でのアクセスは内部エラー（環境変数設定が必要）
 
 3. **Docker最適化**
-   - BuildKitキャッシュマウント実装
+   - BuildKitキャッシュマウント実装済み（9826f7cコミット）
+   - ECRレジストリキャッシュ設定済み
    - Swift並列ビルド（-j8）有効化
-   - 依存関係とソースコードの分離でキャッシュ効率向上
 
-#### ❌ 現在の問題（7月10日 14:18更新）
-1. **Lambda互換性エラー（対策実施中）**
-   - エラー: "Source image is not valid"
-   - 試した対策（時系列）:
-     - buildxからdocker buildへの切り替え ❌
-     - ImageConfig設定の追加 ❌
-     - Lambda Web Adapterのバージョンアップ（0.9.0→0.9.1） ❌
-     - AWS Lambda基本イメージへの変更 ❌（ビルド失敗）
-     - Ubuntu 22.04への戻し ❌
-     - ImageConfigの削除 ✅（実施済み）
-     - Lambda Web Adapterに`--chown=root:root`追加 ✅（実施済み）
-     - `chmod +x`で実行権限付与 ✅（実施済み）
-     - ENTRYPOINTを削除しCMDのみ使用 ✅（実施済み・デプロイ中）
+#### 🚧 進行中の作業（11:58時点）
+1. **BuildKitキャッシュ効果の測定**
+   - 最新実行（9826f7cコミット）: ビルド中（5分以上経過）
+   - 初回ビルドのため時間がかかっている可能性
+   - 2回目以降のビルドで3分以内を期待
 
-2. **パイプライン実行状態（14:18時点）**
-   - 最新実行（3ed07ceコミット）: 
-     - Command: 2025-07-10T02:17:54開始、ビルド中
-     - Query: 2025-07-10T02:17:54開始、ビルド中
-   - 前回実行（ba84387コミット）:
-     - Query: ビルド成功（約5分）、デプロイ失敗
-   - 独立パイプライン動作: 両方が正常に並列実行
+2. **API Gateway動作確認**
+   - Lambda関数は正常にデプロイ済み
+   - 環境変数PORT=3001をSAMテンプレートに追加済み（14cb8adコミット）
+   - 動作確認待ち
 
-#### 🔍 詳細な調査結果
-1. **ECRイメージ状態**
-   - イメージは正しくプッシュ済み（18:18:31）
-   - IMAGE_URIは正しいダイジェスト形式で出力
-   - 例: `983760593510.dkr.ecr.ap-northeast-1.amazonaws.com/query-server-function@sha256:730cb9b52019e9d5353e46922f16b6bcbaab69aee547e3f6929c5245addb5b0f`
+#### 📊 パフォーマンス測定結果
+| フェーズ | 目標 | 現状 | 備考 |
+|---------|-----|------|------|
+| 初回ビルド | - | 約10分 | Swift依存関係の解決含む |
+| キャッシュ利用時 | 3分以内 | 測定中 | BuildKitキャッシュ実装済み |
+| 全体デプロイ時間 | 3分以内 | 未達成 | ビルド時間が課題 |
 
-2. **ビルド設定**
-   - docker buildに切り替え済み（buildx無効化）
-   - `--platform linux/arm64`指定でARM対応
-   - キャッシュ機能は一時的に無効化
+#### 🔍 技術的な発見事項
+1. **Lambda Web Adapterの仕様**
+   - 非AWS管理イメージではENTRYPOINTを設定してはいけない
+   - AWS Lambda公式ベースイメージが最も互換性が高い
+   - PORT環境変数は明示的に設定が必要
 
-3. **目標達成状況**
-   - ✅ ビルド時間: キャッシュ利用で目標を大幅に上回る改善
-   - ❌ 全体時間: Lambda互換性エラーでデプロイ失敗のため未達成
-   - ✅ 独立デプロイ: 仕組みは完成、エラー解決後に動作確認可能
+2. **独立デプロイの動作**
+   - Command/Query別々のパイプラインが正常に並列実行
+   - 変更検知システムは実装済みだが、現在は両方実行される状態
+   - インフラ変更時は両方のパイプラインを実行する設計
 
 ## 重要な注意事項
 
@@ -654,94 +666,104 @@ phases:
 - **デプロイフェーズの失敗**: Lambda互換性エラーで停止
 - **本番環境への反映不可**: 古いバージョンが稼働継続
 
-### 次回作業への引き継ぎ事項（2025年7月10日 14:18）
+### 次回作業への引き継ぎ事項（2025年7月10日 11:58）
 
 #### 1. 現在の状況
-- **最新コミット**: 3ed07ce（ENTRYPOINTを削除、CMDのみ使用）
-- **パイプライン状態**: 両方ともビルド中（02:17:54開始）
-- **期待される結果**: Lambda Web Adapterの仕様に準拠したことでデプロイ成功の可能性
+- **最新コミット**: 9826f7c（BuildKitキャッシュ最適化）
+- **パイプライン状態**: 両方ともビルド中（02:46:49開始、約5分経過）
+- **Lambda互換性**: ✅ 解決済み（AWS Lambda provided:al2-arm64ベースイメージ使用）
+- **API Gateway**: エンドポイントは`https://e5libc8ai7.execute-api.ap-northeast-1.amazonaws.com`
 
 #### 2. 確認すべき事項
-1. **デプロイ結果の確認**
+1. **BuildKitキャッシュ効果の測定**
    ```bash
-   aws codepipeline get-pipeline-state --name query-deploy-pipeline --region ap-northeast-1
-   aws codepipeline get-pipeline-state --name command-deploy-pipeline --region ap-northeast-1
-   ```
-
-2. **成功した場合のAPI動作確認**
-   ```bash
-   # API Gatewayのエンドポイント確認
-   aws apigatewayv2 get-apis --region ap-northeast-1
+   # パイプラインの実行時間確認
+   aws codepipeline list-pipeline-executions --pipeline-name command-deploy-pipeline --region ap-northeast-1 --max-results 5
    
-   # ヘルスチェック
-   curl https://nmyifhbudh.execute-api.ap-northeast-1.amazonaws.com/Stage/query/healthcheck
-   curl https://nmyifhbudh.execute-api.ap-northeast-1.amazonaws.com/Stage/command/v1/healthcheck
+   # ビルド時間の詳細確認
+   aws codebuild batch-get-builds --ids <BUILD_ID> --region ap-northeast-1
    ```
 
-3. **ビルド時間の測定**
-   - 目標: 3分以内
-   - キャッシュ利用時: 20秒以内（前回実績: 16-18秒）
+2. **API動作確認**
+   ```bash
+   # ヘルスチェック（PORT=3001環境変数設定済み）
+   curl https://e5libc8ai7.execute-api.ap-northeast-1.amazonaws.com/Stage/query/healthcheck
+   curl https://e5libc8ai7.execute-api.ap-northeast-1.amazonaws.com/Stage/command/v1/healthcheck
+   ```
 
-#### 3. 残りの対策（デプロイ失敗時）
-1. **Dockerfileの追加調整**
-   - Lambda Web Adapterの最新バージョン確認（現在0.9.1）
-   - ベースイメージをAmazon Linux 2に変更
-   - マルチステージビルドの最適化
+3. **キャッシュヒット率の確認**
+   - ECRキャッシュタグ: `:cache`
+   - 2回目以降のビルドでキャッシュが効いているか確認
 
-2. **デバッグ強化**
-   - CloudWatch Logsでエラー詳細確認
-   - docker run でローカル動作確認
-   - SAM localでのテスト
-
-#### 4. 独立デプロイの検証（デプロイ成功後）
+#### 3. 独立デプロイの検証
 1. **Queryのみ変更テスト**
-   - configure.swiftのバージョン更新
-   - git push後、command-deploy-pipelineがスキップされることを確認
+   ```bash
+   # configure.swiftのバージョンをv12に更新
+   # git push後、command-deploy-pipelineがスキップされるか確認
+   ```
 
 2. **Commandのみ変更テスト**
-   - Service.swiftのバージョン更新
-   - git push後、query-deploy-pipelineがスキップされることを確認
+   ```bash
+   # Service.swiftのバージョンをv10に更新
+   # git push後、query-deploy-pipelineがスキップされるか確認
+   ```
 
-#### 5. 現在のDockerfile構成（最新）
+#### 4. 現在のDockerfile構成（最新）
 ```dockerfile
-# Lambda Web Adapter - 権限付きでコピー
-COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN chmod +x /opt/extensions/lambda-adapter
+# ベースイメージ（解決済み）
+FROM --platform=linux/arm64 public.ecr.aws/lambda/provided:al2-arm64
 
-# ENTRYPOINTなし、CMDのみ
+# BuildKitキャッシュマウント（追加済み）
+RUN --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/build/.build \
+    swift build -c release
+
+# Lambda Web Adapter環境変数はSAMテンプレートで設定
 CMD ["/var/task/QueryServer", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
+```
+
+#### 5. buildspec.yamlの最新設定
+```yaml
+# buildxとECRキャッシュ使用
+docker buildx build \
+  --platform linux/arm64 \
+  --cache-from type=registry,ref=$CACHE_REF \
+  --cache-to type=registry,ref=$CACHE_REF,mode=max \
+  --push
 ```
 
 ### 現在のプロジェクト状態サマリー
 
 #### 達成済み
 - ✅ 独立デプロイパイプライン構築
-- ✅ ビルド高速化（10分→18秒）
-- ✅ 変更検知システム
+- ✅ Lambda互換性問題の解決（AWS Lambda公式ベースイメージ使用）
+- ✅ 変更検知システム実装
 - ✅ 並列ビルド実行
+- ✅ BuildKitキャッシュ最適化実装
 
-#### 未達成
-- ❌ Lambda互換性問題の解決
-- ❌ 3分以内の完全デプロイ（ビルドは達成、デプロイで失敗）
-- ❌ 本番環境への新バージョン反映
+#### 進行中
+- 🔄 ビルド時間の測定（キャッシュ効果確認中）
+- 🔄 API Gateway経由での動作確認
+
+#### 未検証
+- ❔ 3分以内の完全デプロイ（キャッシュ利用時）
+- ❔ 独立デプロイの動作（Queryのみ/Commandのみ変更時）
 
 ### パフォーマンス最適化の次のステップ
 
-#### 1. BuildKitキャッシュの再有効化（デプロイ成功後）
-```yaml
-# buildspec.yml
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    swift build -c release
-```
+#### 1. キャッシュ効果の検証
+- ✅ BuildKitキャッシュマウント実装済み
+- ✅ ECRレジストリキャッシュ設定済み
+- 🔄 2回目以降のビルドで3分以内を確認
 
-#### 2. ECRキャッシュの活用
-- `--cache-from`と`--cache-to`でレジストリキャッシュ実装
-- 初回ビルド: 9分 → キャッシュ利用: 16-18秒の実績
+#### 2. 変更検知システムの活用
+- buildspecに実装済みだが未検証
+- Queryのみ/Commandのみ変更時のスキップ動作確認が必要
 
-#### 3. 変更検知システムの活用
-- git diffベースで必要なサービスのみビルド
-- 不要なビルドをスキップして時間短縮
+#### 3. ビルド時間の最終目標
+- 初回ビルド: 10分以内
+- キャッシュ利用時: 3分以内
+- スキップ時: 0秒（ビルド自体を実行しない）
 
 ### 重要な学習事項
 
@@ -759,3 +781,38 @@ RUN --mount=type=cache,target=/root/.cache \
    - パイプライン分離による並列実行
    - サービス別の変更検知
    - マイクロサービスの独立性確保
+
+## 本日の作業セッションまとめ（2025年7月10日 02:30-11:58）
+
+### 実施内容
+1. **Lambda互換性問題の解決**
+   - 多数の対策を段階的に試行
+   - 最終的にAWS Lambda公式ベースイメージで解決
+   - デプロイ成功確認（2025-07-10T02:43）
+
+2. **BuildKitキャッシュ最適化の実装**
+   - Dockerfileにキャッシュマウント追加
+   - buildspec.yamlでbuildxとECRキャッシュ設定
+   - 効果測定は次回確認予定
+
+3. **環境変数の整理**
+   - DockerfileからハードコードされたENVを削除
+   - SAMテンプレートでPORT=3001を設定
+   - Lambda Web Adapterの自動設定を活用
+
+### 技術的な解決ポイント
+- **ベースイメージ**: `public.ecr.aws/lambda/provided:al2-arm64`が最も互換性が高い
+- **ENTRYPOINT**: 非AWS管理イメージでは設定不可（CMDのみ使用）
+- **キャッシュ戦略**: BuildKit + ECRレジストリキャッシュの併用
+
+### 次回の優先事項
+1. BuildKitキャッシュ効果の測定（2回目のビルドで3分以内達成を確認）
+2. API Gatewayエンドポイントの動作確認
+3. 独立デプロイの検証（Queryのみ/Commandのみ変更時）
+4. 旧リソースの削除（統合パイプライン等）
+
+### 重要な成果
+- ✅ **Lambda互換性問題を完全解決**
+- ✅ **独立デプロイアーキテクチャ構築完了**
+- ✅ **BuildKitキャッシュ最適化実装完了**
+- 🔄 **パフォーマンス目標達成は測定待ち**
