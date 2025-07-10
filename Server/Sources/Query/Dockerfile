@@ -62,7 +62,6 @@ FROM --platform=linux/arm64 ubuntu:22.04
 
 # Lambda Web Adapter - copy to extensions directory with proper ownership
 COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN chmod +x /opt/extensions/lambda-adapter
 
 # Install runtime dependencies
 RUN apt-get update && \
@@ -95,5 +94,5 @@ EXPOSE 3001
 RUN chmod +x /var/task/QueryServer
 
 # Lambda Web Adapter will start our app
-# Do not set ENTRYPOINT with Lambda Web Adapter on non-AWS managed images
-CMD ["/var/task/QueryServer", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
+ENTRYPOINT ["/var/task/QueryServer"]
+CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
