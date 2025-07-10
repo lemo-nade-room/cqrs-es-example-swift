@@ -24,6 +24,7 @@ phases:
       - |
         docker buildx build \
           --builder "$BUILDER_NAME" \
+          --platform linux/amd64 \
           --file "$DOCKERFILE_PATH" \
           --tag "$REPOSITORY_URL:$TAG" \
           --cache-from "type=registry,ref=$CACHE_IMAGE" \
