@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # ================================
 # Build image
 # ================================
@@ -21,25 +20,19 @@ WORKDIR /build
 # This creates a cached layer that can be reused
 # as long as your Package.swift/Package.resolved
 # files do not change.
-COPY Package.* ./
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    swift package resolve \
+COPY ./Package.* ./
+RUN swift package resolve \
         $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
 
-# Copy only source code to avoid cache invalidation from other changes
-COPY Sources ./Sources
+# Copy entire repo into container
+COPY . .
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 # N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    swift build -c release \
+RUN swift build -c release \
         --product CommandServer \
         --static-swift-stdlib \
-        -Xlinker -ljemalloc \
-        -Xswiftc -j8 \
-        -Xswiftc -enable-batch-mode
+        -Xlinker -ljemalloc
 
 # Switch to the staging area
 WORKDIR /staging
@@ -53,13 +46,10 @@ RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 # Copy resources bundled by SPM to staging area
 RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \;
 
-# Copy any resources from the build context if they exist
-COPY --from=build /build/Public ./Public || true
-COPY --from=build /build/Resources ./Resources || true
-
-# Ensure resources are not writable
-RUN [ -d ./Public ] && chmod -R a-w ./Public || true
-RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
+# Copy any resources from the public directory and views directory if the directories exist
+# Ensure that by default, neither the directory nor any of its contents are writable.
+RUN [ -d /build/Public ] && { mv /build/Public ./Public && chmod -R a-w ./Public; } || true
+RUN [ -d /build/Resources ] && { mv /build/Resources ./Resources && chmod -R a-w ./Resources; } || true
 
 # ================================
 # Run image
