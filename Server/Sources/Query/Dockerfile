@@ -43,14 +43,13 @@ RUN --mount=type=cache,target=/root/.cache \
 WORKDIR /staging
 
 # Copy main executable to staging area
-# Note: Using find to locate the binary due to BuildKit cache mount behavior
-RUN find /build/.build -name QueryServer -type f -executable -exec cp {} ./ \;
+RUN cp "$(swift build --package-path /build -c release --show-bin-path)/QueryServer" ./
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 
 # Copy resources bundled by SPM to staging area
-RUN find -L /build/.build -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
+RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \;
 
 # Copy any resources from the build context if they exist
 # Note: These are copied from the build context, not from the build stage
