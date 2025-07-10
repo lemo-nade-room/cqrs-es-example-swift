@@ -311,7 +311,7 @@ resource "aws_codebuild_project" "sam_package" {
 resource "aws_codebuild_project" "docker_build_and_push" {
   name          = "docker_build_and_push"
   description   = "Docker ImageをBuildし、ECRへプッシュするCodeBuildプロジェクトです。使用時にはREPOSITORY_URL, DOCKERFILE_PATH, TAGの環境変数のOverrideが必要です"
-  build_timeout = 15
+  build_timeout = 20
   service_role  = aws_iam_role.super_role.arn
 
   artifacts {
