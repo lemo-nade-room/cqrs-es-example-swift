@@ -33,10 +33,6 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref CommandServerFunctionImageUri
-      ImageConfig:
-        EntryPoint: ["/var/task/CommandServer"]
-        Command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
-        WorkingDirectory: "/var/task"
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
@@ -66,10 +62,6 @@ Resources:
     Properties:
       PackageType: Image
       ImageUri: !Ref QueryServerFunctionImageUri
-      ImageConfig:
-        EntryPoint: ["/var/task/QueryServer"]
-        Command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
-        WorkingDirectory: "/var/task"
       Environment:
         Variables:
           SERVER: !Ref ServerEnvironment
