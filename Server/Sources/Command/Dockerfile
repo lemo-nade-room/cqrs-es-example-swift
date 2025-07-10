@@ -32,28 +32,29 @@ COPY Sources ./Sources
 # Copy test directories to satisfy Package.swift dependencies
 COPY Tests ./Tests
 
-# Build the application and copy to staging in one step
-# This ensures the binary is available after the cache mount is unmounted
-WORKDIR /staging
+# Build the application, with optimizations, with static linking, and using jemalloc
+# N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
 RUN --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/build/.build \
-    cd /build && \
     swift build -c release \
         --product CommandServer \
         --static-swift-stdlib \
         -Xlinker -ljemalloc \
         -Xswiftc -j8 \
-        -Xswiftc -enable-batch-mode && \
-    cp "$(swift build --package-path /build -c release --show-bin-path)/CommandServer" /staging/ || \
-    find /build/.build -name CommandServer -type f -executable -exec cp {} /staging/ \;
+        -Xswiftc -enable-batch-mode
+
+# Switch to the staging area
+WORKDIR /staging
+
+# Copy main executable to staging area
+# Note: Using find to locate the binary due to BuildKit cache mount behavior
+RUN find /build/.build -name CommandServer -type f -executable -exec cp {} ./ \;
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 
 # Copy resources bundled by SPM to staging area
-# Note: Resources need to be copied while the build directory is still accessible
-RUN --mount=type=cache,target=/build/.build \
-    find -L /build/.build -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
+RUN find -L /build/.build -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
 
 # Copy any resources from the build context if they exist
 # Note: These are copied from the build context, not from the build stage
