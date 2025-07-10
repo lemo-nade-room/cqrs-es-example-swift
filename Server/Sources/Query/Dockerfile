@@ -65,7 +65,7 @@ RUN chmod +x /opt/extensions/lambda-adapter
 # Install runtime dependencies
 RUN yum update -y && \
     yum install -y \
-      openssl \
+      jemalloc \
       libcurl \
       libxml2 \
     && yum clean all

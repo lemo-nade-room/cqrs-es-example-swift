@@ -8,6 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
     && apt-get -q dist-upgrade -y \
     && apt-get install -y \
+    libjemalloc-dev \
     libssl-dev \
     openssl \
     pkg-config
@@ -34,6 +35,7 @@ RUN cd /build && \
     swift build -c release \
         --product CommandServer \
         --static-swift-stdlib \
+        -Xlinker -ljemalloc \
         -Xswiftc -j8 \
         -Xswiftc -enable-batch-mode && \
     cp "$(swift build --package-path /build -c release --show-bin-path)/CommandServer" /staging/ || \
@@ -67,6 +69,7 @@ RUN chmod +x /opt/extensions/lambda-adapter
 # Install runtime dependencies
 RUN yum update -y && \
     yum install -y \
+      jemalloc \
       openssl \
       libcurl \
       libxml2 \
