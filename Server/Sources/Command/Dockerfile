@@ -22,9 +22,7 @@ WORKDIR /build
 # as long as your Package.swift/Package.resolved
 # files do not change.
 COPY Package.* ./
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    swift package resolve \
+RUN swift package resolve \
         $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
 
 # Copy only source code to avoid cache invalidation from other changes
@@ -35,9 +33,7 @@ COPY Tests ./Tests
 # Build the application and copy to staging in one step
 # This ensures the binary is available after the cache mount is unmounted
 WORKDIR /staging
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    cd /build && \
+RUN cd /build && \
     swift build -c release \
         --product CommandServer \
         --static-swift-stdlib \
@@ -52,8 +48,7 @@ RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 
 # Copy resources bundled by SPM to staging area
 # Note: Resources need to be copied while the build directory is still accessible
-RUN --mount=type=cache,target=/build/.build \
-    find -L /build/.build -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
+RUN find -L /build/.build -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
 
 # Copy any resources from the build context if they exist
 # Note: These are copied from the build context, not from the build stage
@@ -70,7 +65,8 @@ RUN [ -d ./Resources ] && chmod -R a-w ./Resources || true
 FROM public.ecr.aws/ubuntu/ubuntu:noble
 
 # Lambda Web Adapter
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+RUN chmod +x /opt/extensions/lambda-adapter
 
 # Make sure all system packages are up to date, and install only essential packages.
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -96,10 +92,11 @@ ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=n
 
 # Lambda Web Adapter Settings
 ENV AWS_LWA_PORT=3001
+ENV AWS_LWA_INVOKE_MODE=buffered
 
 # Let Docker bind to port 3001
 EXPOSE 3001
 
 # Start the Vapor service when the image is run, default to listening on 3001 in production environment
-ENTRYPOINT ["./CommandServer"]
+ENTRYPOINT ["/app/CommandServer"]
 CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
