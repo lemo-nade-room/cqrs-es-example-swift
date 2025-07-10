@@ -3,7 +3,7 @@
 ## プロジェクト概要
 SwiftとVaporで構築されたCQRS（コマンドクエリ責任分離）とイベントソーシングのサンプルアプリケーション。AWS Lambdaにデプロイされ、独立したコマンドサーバーとクエリサーバーを持つマイクロサービスアーキテクチャ。
 
-## 🚀 最新の改良（2025年7月10日 14:18更新）
+## 🚀 最新の改良（2025年7月10日）
 
 ### 独立デプロイとビルド高速化の実装状況
 **目標**: CommandとQueryが独立してデプロイ可能で、3分以内のデプロイ時間
@@ -35,13 +35,9 @@ SwiftとVaporで構築されたCQRS（コマンドクエリ責任分離）とイ
    - Lambda Web Adapterとの互換性改善のため、ImageConfigでCOMMANDを明示的に指定
    - Command/Query両方のLambda関数に適用
 
-#### 🔄 現在進行中（7月10日 14:18更新）
-- **Lambda互換性問題の解決**: 複数の対策を試行中
-  - ✅ ImageConfigの削除（SAM template.yaml）
-  - ✅ Lambda Web Adapterに`--chown=root:root`フラグ追加
-  - ✅ `chmod +x`でLambda Web Adapterに実行権限付与
-  - ✅ ENTRYPOINTを削除しCMDのみ使用（非AWS管理イメージの要件）
-- **最新状態**: 3ed07ceコミットでデプロイ中（2025-07-10T02:17:54）
+#### 🔄 現在進行中（7月10日更新）
+- **Lambda互換性問題の解決**: ImageConfig追加後も「Source image is not valid」エラーが継続
+- **根本的な解決策の検討**: Lambda Web Adapterアプローチの見直しが必要
 
 #### 📋 残作業
 1. **パイプライン実行結果の確認**
@@ -270,7 +266,7 @@ openapi-generator validate -i ./Server/Sources/Command/Server/openapi.yaml
 ### QueryServer
 - OpenAPI仕様ファイルは現在なし
 
-## 現在のステータス（2025年7月10日 14:18更新）
+## 現在のステータス（2025年7月10日 10:50更新）
 
 ### 🎯 独立デプロイと高速化の実装状況
 
@@ -290,27 +286,23 @@ openapi-generator validate -i ./Server/Sources/Command/Server/openapi.yaml
    - Swift並列ビルド（-j8）有効化
    - 依存関係とソースコードの分離でキャッシュ効率向上
 
-#### ❌ 現在の問題（7月10日 14:18更新）
-1. **Lambda互換性エラー（対策実施中）**
-   - エラー: "Source image is not valid"
-   - 試した対策（時系列）:
+#### ❌ 現在の問題（7月10日 10:50更新）
+1. **Lambda互換性エラー（未解決）**
+   - エラー: "Source image 983760593510.dkr.ecr.ap-northeast-1.amazonaws.com/command-server-function is not valid"
+   - 試した対策:
      - buildxからdocker buildへの切り替え ❌
-     - ImageConfig設定の追加 ❌
+     - ImageConfig設定の追加（EntryPoint, Command, WorkingDirectory） ❌
      - Lambda Web Adapterのバージョンアップ（0.9.0→0.9.1） ❌
-     - AWS Lambda基本イメージへの変更 ❌（ビルド失敗）
-     - Ubuntu 22.04への戻し ❌
-     - ImageConfigの削除 ✅（実施済み）
-     - Lambda Web Adapterに`--chown=root:root`追加 ✅（実施済み）
-     - `chmod +x`で実行権限付与 ✅（実施済み）
-     - ENTRYPOINTを削除しCMDのみ使用 ✅（実施済み・デプロイ中）
+     - AWS Lambda基本イメージ（al2023-arm64）への変更 ❌（ビルド失敗）
+     - Ubuntu 22.04への戻しと各種調整 ❌
+   - 影響: CloudFormationデプロイで失敗（UPDATE_ROLLBACK_COMPLETE）
 
-2. **パイプライン実行状態（14:18時点）**
-   - 最新実行（3ed07ceコミット）: 
-     - Command: 2025-07-10T02:17:54開始、ビルド中
-     - Query: 2025-07-10T02:17:54開始、ビルド中
-   - 前回実行（ba84387コミット）:
-     - Query: ビルド成功（約5分）、デプロイ失敗
-   - 独立パイプライン動作: 両方が正常に並列実行
+2. **パイプライン実行状態**
+   - 最新実行（7月10日 10:44開始）: 
+     - ビルド: 進行中（BuildKitキャッシュ無効化の影響で時間増加）
+     - デプロイ: Lambda互換性エラーで失敗継続
+   - 独立パイプライン動作: 両方が正常に並列実行されることを確認
+   - 現在のAPI: 古いバージョンが稼働中（最後の成功デプロイ時点）
 
 #### 🔍 詳細な調査結果
 1. **ECRイメージ状態**
@@ -552,50 +544,38 @@ phases:
    - より積極的なキャッシュ戦略
    - ビルド並列度のさらなる調整
 
-## 今回の作業セッションまとめ（2025年7月10日 10:50-14:18）
+## 今回の作業セッションまとめ（2025年7月10日 01:00-10:50）
 
 ### 実施内容
-1. **Lambda互換性エラーの段階的な対策実施**
-   - **第1段階**: ImageConfigの削除（SAM template.yaml）
-     - 理由: ImageConfigとLambda Web Adapterの競合可能性
-     - 結果: エラー継続
-   
-   - **第2段階**: Lambda Web Adapterのパーミッション修正
-     - `--chown=root:root`フラグ追加（CI/CD環境での権限問題対策）
-     - `chmod +x`で実行権限を明示的に付与
-     - 結果: エラー継続
-   
-   - **第3段階**: ENTRYPOINTの削除（最新）
-     - AWS公式ドキュメントに基づく修正
-     - 非AWS管理イメージ（Ubuntu）ではENTRYPOINT不要
-     - CMDのみで起動コマンドを指定
-     - 結果: デプロイ中（14:18時点）
+1. **Lambda互換性エラーの詳細調査と複数の対策試行**
+   - SAMテンプレートへのImageConfig追加（EntryPoint, Command, WorkingDirectory）
+   - Lambda Web Adapterのバージョンアップ（0.9.0→0.9.1）
+   - ベースイメージの変更試行（Ubuntu→AWS Lambda基本イメージ→Ubuntu 22.04）
+   - Dockerfileの各種調整（chmod +x、パス修正、ENV設定等）
+   - BuildSpec修正（BuildKitキャッシュマウント削除）
 
-2. **Web検索による根本原因の特定**
-   - Lambda Web AdapterのGitHubイシューとAWS re:Postから重要な情報を発見
-   - CI/CD環境特有の権限問題が原因の可能性
-   - 非AWS管理イメージでのENTRYPOINT設定が問題を引き起こす
+2. **独立デプロイシステムの動作確認**
+   - Command/Query両パイプラインが独立して動作することを確認
+   - git pushで自動的に両パイプラインが起動
+   - ビルドフェーズまでは正常に動作
 
 3. **バージョン管理による変更追跡**
-   - Command Server: v3 → v4 → v5 (No ENTRYPOINT)
-   - Query Server: v5 → v6 → v7 (No ENTRYPOINT)
+   - Command Server: v2 - Adapter Path Fix
+   - Query Server: v4 - Lambda Adapter Path Fix
 
 ### 技術的な発見事項
-1. **Lambda Web Adapterの重要な仕様**
-   - **権限問題**: CI/CD環境では`--chown=root:root`フラグが必須
-   - **ENTRYPOINT制限**: 非AWS管理イメージではENTRYPOINTを設定してはいけない
-   - **起動方法**: CMDのみで完全なコマンドを指定する必要がある
-   
-2. **独立デプロイシステムの動作確認**
-   - 両パイプラインが正常に並列実行されることを確認
-   - ビルド時間: Queryが約5分（キャッシュなし）
-   - 変更検知システムは実装済みだが、現在は両方のパイプラインが実行される
+1. **BuildKitの制約**
+   - CodeBuild環境でBuildKitが利用不可（buildxコンポーネント欠如）
+   - `--mount=type=cache`を削除して通常のdocker buildに変更
 
-3. **デバッグで判明した事実**
-   - ECRへのイメージプッシュは成功している
-   - イメージサイズ: 約112MB（適正範囲）
-   - マニフェスト形式: `application/vnd.docker.distribution.manifest.v2+json`
-   - エラーはCloudFormationのLambda関数作成/更新時に発生
+2. **AWS Lambda基本イメージの問題**
+   - `public.ecr.aws/lambda/provided:al2023-arm64`使用時にSwift依存関係でビルド失敗
+   - dnfパッケージマネージャーでの依存関係解決に問題
+
+3. **イメージ検証エラーの継続**
+   - 様々な対策を試みたが「Source image is not valid」エラーが解決せず
+   - エラーはアーキテクチャ不一致ではない（arm64で統一済み）
+   - Lambda Web AdapterとLambdaサービスの互換性に根本的な問題がある可能性
 
 ### 詳細な調査結果（アーキテクチャ互換性）
 
@@ -654,63 +634,44 @@ phases:
 - **デプロイフェーズの失敗**: Lambda互換性エラーで停止
 - **本番環境への反映不可**: 古いバージョンが稼働継続
 
-### 次回作業への引き継ぎ事項（2025年7月10日 14:18）
+### 推奨される方向転換（詳細版）
 
-#### 1. 現在の状況
-- **最新コミット**: 3ed07ce（ENTRYPOINTを削除、CMDのみ使用）
-- **パイプライン状態**: 両方ともビルド中（02:17:54開始）
-- **期待される結果**: Lambda Web Adapterの仕様に準拠したことでデプロイ成功の可能性
+#### 1. Swift AWS Lambda Runtimeへの移行
+**理由**:
+- Lambda Runtime APIとの直接統合でより確実
+- 公式サポートで実績あり
+- Lambda Web Adapterの制限を回避
 
-#### 2. 確認すべき事項
-1. **デプロイ結果の確認**
-   ```bash
-   aws codepipeline get-pipeline-state --name query-deploy-pipeline --region ap-northeast-1
-   aws codepipeline get-pipeline-state --name command-deploy-pipeline --region ap-northeast-1
-   ```
+**実装方針**:
+```swift
+// 現在: Vapor + Lambda Web Adapter
+// 移行後: Vapor + Swift Lambda Runtime
+import AWSLambdaRuntime
+import Vapor
 
-2. **成功した場合のAPI動作確認**
-   ```bash
-   # API Gatewayのエンドポイント確認
-   aws apigatewayv2 get-apis --region ap-northeast-1
-   
-   # ヘルスチェック
-   curl https://nmyifhbudh.execute-api.ap-northeast-1.amazonaws.com/Stage/query/healthcheck
-   curl https://nmyifhbudh.execute-api.ap-northeast-1.amazonaws.com/Stage/command/v1/healthcheck
-   ```
-
-3. **ビルド時間の測定**
-   - 目標: 3分以内
-   - キャッシュ利用時: 20秒以内（前回実績: 16-18秒）
-
-#### 3. 残りの対策（デプロイ失敗時）
-1. **Dockerfileの追加調整**
-   - Lambda Web Adapterの最新バージョン確認（現在0.9.1）
-   - ベースイメージをAmazon Linux 2に変更
-   - マルチステージビルドの最適化
-
-2. **デバッグ強化**
-   - CloudWatch Logsでエラー詳細確認
-   - docker run でローカル動作確認
-   - SAM localでのテスト
-
-#### 4. 独立デプロイの検証（デプロイ成功後）
-1. **Queryのみ変更テスト**
-   - configure.swiftのバージョン更新
-   - git push後、command-deploy-pipelineがスキップされることを確認
-
-2. **Commandのみ変更テスト**
-   - Service.swiftのバージョン更新
-   - git push後、query-deploy-pipelineがスキップされることを確認
-
-#### 5. 現在のDockerfile構成（最新）
-```dockerfile
-# Lambda Web Adapter - 権限付きでコピー
-COPY --chown=root:root --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN chmod +x /opt/extensions/lambda-adapter
-
-# ENTRYPOINTなし、CMDのみ
-CMD ["/var/task/QueryServer", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
+@main
+struct LambdaHandler: SimpleLambdaHandler {
+    func handle(_ event: APIGatewayV2Request, context: LambdaContext) async throws -> APIGatewayV2Response {
+        // Vaporアプリをラップ
+    }
+}
 ```
+
+#### 2. 段階的移行計画
+1. **Phase 1: 検証環境構築**
+   - 最小限のSwift Lambda Runtimeサンプル作成
+   - SAM localでの動作確認
+   - ECRへのプッシュとLambdaデプロイテスト
+
+2. **Phase 2: Vapor統合**
+   - VaporアプリケーションをLambdaハンドラーでラップ
+   - ルーティングとリクエスト処理の統合
+   - ローカルテストの実施
+
+3. **Phase 3: 本番移行**
+   - Command/Queryサーバーへの適用
+   - パフォーマンステスト
+   - 段階的ロールアウト
 
 ### 現在のプロジェクト状態サマリー
 
@@ -725,37 +686,38 @@ CMD ["/var/task/QueryServer", "serve", "--env", "production", "--hostname", "0.0
 - ❌ 3分以内の完全デプロイ（ビルドは達成、デプロイで失敗）
 - ❌ 本番環境への新バージョン反映
 
-### パフォーマンス最適化の次のステップ
+### 次回作業への具体的な引き継ぎ事項
 
-#### 1. BuildKitキャッシュの再有効化（デプロイ成功後）
-```yaml
-# buildspec.yml
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/build/.build \
-    swift build -c release
-```
+1. **最優先タスク**
+   - Lambda Web Adapterの問題解決またはSwift AWS Lambda Runtimeへの移行
+   - 最小限のサンプルでLambdaデプロイ成功を確認
+   - 現在のコミット: `bc15356` (Ubuntu 22.04ベース、/var/task構造)
 
-#### 2. ECRキャッシュの活用
-- `--cache-from`と`--cache-to`でレジストリキャッシュ実装
-- 初回ビルド: 9分 → キャッシュ利用: 16-18秒の実績
+2. **検証すべき仮説**
+   - Lambda Web AdapterのSwift/Vapor互換性に問題がある
+   - イメージのメタデータやマニフェスト形式が要因
+   - Swift Lambda Runtimeなら問題なくデプロイ可能
 
-#### 3. 変更検知システムの活用
-- git diffベースで必要なサービスのみビルド
-- 不要なビルドをスキップして時間短縮
+3. **保持すべき改善**
+   - 独立パイプライン構成（正常動作確認済み）
+   - 変更検知システム（未テストだが実装済み）
+   - ビルド高速化設定（BuildKitキャッシュは現在無効化中）
 
-### 重要な学習事項
+4. **注意点**
+   - アーキテクチャ（arm64）の設定は正しいので変更不要
+   - ECRリポジトリポリシーも正しく設定済み
+   - 問題はイメージ形式/Runtime API統合にある
+   - BuildKitが使えない環境での最適化が必要
 
-1. **Lambda Web Adapterの仕様理解**
-   - CI/CD環境での権限問題に注意
-   - 非AWS管理イメージでのENTRYPOINT制限
-   - ポート設定とヘルスチェックパスの重要性
+5. **現在のDockerfile構成**
+   - ベースイメージ: `ubuntu:22.04`（arm64プラットフォーム指定）
+   - Lambda Web Adapter: v0.9.1
+   - 作業ディレクトリ: `/var/task`（Lambda標準）
+   - 実行権限付与済み（chmod +x）
 
-2. **デバッグアプローチ**
-   - Web検索で類似事例を調査
-   - 段階的な対策実施と結果の記録
-   - バージョン管理による変更追跡
-
-3. **独立デプロイアーキテクチャ**
-   - パイプライン分離による並列実行
-   - サービス別の変更検知
-   - マイクロサービスの独立性確保
+6. **試行済みで失敗した対策リスト**
+   - ImageConfig（EntryPoint, Command, WorkingDirectory）の設定
+   - Lambda Web Adapterバージョンアップ
+   - AWS Lambda基本イメージへの変更
+   - 各種Dockerfileパラメータの調整
+   - ENVパラメータの変更（PORT, AWS_LWA_PORT, AWS_LWA_INVOKE_MODE等）
