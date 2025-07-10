@@ -17,26 +17,9 @@ phases:
     commands:
       - echo "Checking for changes in $SERVICE_NAME..."
       - |
-        # Get the list of changed files from the last successful build
-        if [ -n "$CODEBUILD_RESOLVED_SOURCE_VERSION" ]; then
-          CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD || echo "")
-          echo "Changed files: $CHANGED_FILES"
-          
-          # Check if any relevant files changed
-          RELEVANT_CHANGES=false
-          if echo "$CHANGED_FILES" | grep -E "(Server/Sources/$SERVICE_NAME/|Server/Package\.swift|Server/Package\.resolved|Server/AWS/)"; then
-            RELEVANT_CHANGES=true
-          fi
-          
-          if [ "$RELEVANT_CHANGES" = "false" ]; then
-            echo "No changes detected for $SERVICE_NAME. Skipping build."
-            export BUILD_SKIPPED=true
-          else
-            export BUILD_SKIPPED=false
-          fi
-        else
-          export BUILD_SKIPPED=false
-        fi
+        # Temporarily disable change detection until we fix it
+        echo "Change detection temporarily disabled"
+        export BUILD_SKIPPED=false
       
       - |
         if [ "$BUILD_SKIPPED" = "false" ]; then
