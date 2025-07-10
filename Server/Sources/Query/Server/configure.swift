@@ -2,7 +2,7 @@ import Vapor
 
 func configure(_ app: Application) async throws {
     app.get("query", "healthcheck") { _ in
-        "Query Running - v9 (Lambda AL2)"
+        "Query Running - v8 (Amazon Linux 2)"
     }
 
     app.get("Stage", "query", "healthcheck") { _ in
