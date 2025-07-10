@@ -88,5 +88,6 @@ EXPOSE 3001
 RUN chmod +x /var/task/QueryServer
 
 # Lambda Web Adapter will start our app
-# Do not set ENTRYPOINT with Lambda Web Adapter on non-AWS managed images
+# Clear the default ENTRYPOINT from provided:al2 image
+ENTRYPOINT []
 CMD ["/var/task/QueryServer", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "3001"]
