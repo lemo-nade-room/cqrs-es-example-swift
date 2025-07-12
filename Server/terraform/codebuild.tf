@@ -33,16 +33,16 @@ resource "aws_codebuild_project" "main" {
       name  = "AWS_ACCOUNT_ID"
       value = data.aws_caller_identity.current.account_id
     }
-
-    environment_variable {
-      name  = "CACHE_BUCKET"
-      value = aws_s3_bucket.codepipeline_artifacts.id
-    }
   }
 
   source {
     type      = "CODEPIPELINE"
     buildspec = "Server/terraform/buildspec.yml"
+  }
+
+  cache {
+    type     = "S3"
+    location = "${aws_s3_bucket.codepipeline_artifacts.id}/codebuild-cache"
   }
 
   logs_config {

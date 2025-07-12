@@ -1,5 +1,9 @@
 version: 0.2
 
+cache:
+  paths:
+    - 'Server/.build/**/*'
+
 phases:
   install:
     commands:
@@ -21,7 +25,13 @@ phases:
   build:
     commands:
       - cd Server
-      - swift build -c release --product CommandServer --static-swift-stdlib -Xlinker -ljemalloc
+      - |
+        swift build \
+          -c release \
+          --product CommandServer \
+          --build-path .build \
+          --static-swift-stdlib \
+          -Xlinker -ljemalloc
       - cp "$(swift build --package-path /build -c release --show-bin-path)/CommandServer" ./App
       - |
         docker buildx build \
