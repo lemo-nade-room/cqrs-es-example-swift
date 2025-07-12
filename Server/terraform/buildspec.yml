@@ -5,6 +5,9 @@ phases:
     commands:
       # 環境変数の設定
       - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - export S3_CACHE_URI=s3://$CACHE_BUCKET/buildkit-cache
+      
+      # Docker Buildxの設定
       - docker buildx create --use --driver docker-container --platform linux/arm64
 
       # ECRへのログイン
@@ -12,12 +15,14 @@ phases:
 
   build:
     commands:
-      # Dockerイメージのビルドとプッシュ
+      # Dockerイメージのビルドとプッシュ（S3キャッシュ付き）
       - |
         docker buildx build \
           --platform linux/arm64 \
           --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit \
+          --cache-from type=s3,region=$AWS_DEFAULT_REGION,bucket=$CACHE_BUCKET,prefix=buildkit-cache/ \
           --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
+          --cache-to type=s3,region=$AWS_DEFAULT_REGION,bucket=$CACHE_BUCKET,prefix=buildkit-cache/,mode=max \
           --tag $REPOSITORY_URI:latest \
           --tag $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION \
           --provenance=false --sbom=false \
