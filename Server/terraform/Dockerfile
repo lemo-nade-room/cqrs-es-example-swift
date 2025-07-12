@@ -26,6 +26,10 @@ COPY ./Server/Package.* ./
 COPY ./Server/Sources ./Sources
 COPY ./Server/Tests ./Tests
 
+RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
+    --mount=type=cache,id=swift-build,target=/build/.build \
+    ls -a /build/.build
+
 # Build the application with optimizations
 # BuildKitのキャッシュマウントを使用して、ビルドキャッシュを永続化
 RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
