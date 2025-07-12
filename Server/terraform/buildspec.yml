@@ -4,14 +4,12 @@ phases:
   pre_build:
     commands:
       # 環境変数の設定
-      - "AWS_ACCOUNT_ID=echo $CODEBUILD_BUILD_ARN | cut -d: -f5"
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
-      - IMAGE_TAG=echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7
-      - export AWS_ACCOUNT_ID REPOSITORY_URI IMAGE_TAG
+      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - export IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7)
       - export DOCKER_BUILDKIT=1
-      
+
       # ECRへのログイン
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
@@ -28,11 +26,3 @@ phases:
           --progress=plain \
           -f Server/terraform/Dockerfile .
 
-  post_build:
-    commands:
-      # ECSデプロイ用の定義ファイル作成
-      - printf '[{"name":"command-server","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-
-artifacts:
-  files:
-    - imagedefinitions.json

@@ -28,6 +28,11 @@ resource "aws_codebuild_project" "main" {
       name  = "ECR_REPOSITORY_NAME"
       value = aws_ecr_repository.lambda_command.name
     }
+
+    environment_variable {
+      name  = "AWS_ACCOUNT_ID"
+      value = data.aws_caller_identity.current.account_id
+    }
   }
 
   source {
