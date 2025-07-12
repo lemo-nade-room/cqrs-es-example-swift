@@ -9,7 +9,7 @@ resource "aws_codebuild_project" "main" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_LARGE"
-    image                       = "aws/codebuild/amazonlinux-aarch64-standard:3.0"
+    image                       = "public.ecr.aws/docker/library/swift:6.1-noble"
     type                        = "ARM_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
     privileged_mode             = true # Dockerビルドのために必要
