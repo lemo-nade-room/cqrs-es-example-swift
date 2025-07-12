@@ -38,6 +38,7 @@ COPY ./Server/Tests ./Tests
 RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
     --mount=type=cache,id=swift-build,target=/build/.build \
     swift build -c release \
+            --build-path /build/.build \
             --product CommandServer \
             --static-swift-stdlib \
             -Xlinker -ljemalloc
