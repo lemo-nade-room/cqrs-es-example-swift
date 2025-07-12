@@ -40,6 +40,10 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --static-swift-stdlib \
             -Xlinker -ljemalloc
 
+RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
+    --mount=type=cache,id=swift-build,target=/build/.build \
+    ls -a /build/.build
+
 # Copy built executable to a known location
 # キャッシュマウントを使用してビルド結果を取得
 RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
@@ -51,6 +55,10 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
     [ -d /build/Public ] && cp -r /build/Public /build/Public-copy || true && \
     [ -d /build/Resources ] && cp -r /build/Resources /build/Resources-copy || true
 
+
+RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
+    --mount=type=cache,id=swift-build,target=/build/.build \
+    ls -a /build/.build
 # ================================
 # Runtime image
 # ================================
