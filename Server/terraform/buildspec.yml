@@ -26,13 +26,13 @@ phases:
       - echo "ECR_REPOSITORY_NAME = $ECR_REPOSITORY_NAME"
       - echo "CODEBUILD_RESOLVED_SOURCE_VERSION = $CODEBUILD_RESOLVED_SOURCE_VERSION"
       - echo "CODEBUILD_BUILD_ARN = $CODEBUILD_BUILD_ARN"
-      - export AWS_ACCOUNT_ID=`echo $CODEBUILD_BUILD_ARN | cut -d: -f5`
+      - AWS_ACCOUNT_ID=$(echo $CODEBUILD_BUILD_ARN | cut -d: -f5)
       - echo "AWS_ACCOUNT_ID = $AWS_ACCOUNT_ID"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
       - echo "REPOSITORY_URI = $REPOSITORY_URI"
-      - export COMMIT_HASH=`echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7`
-      - export IMAGE_TAG=${COMMIT_HASH:=latest}
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
       - echo "IMAGE_TAG = $IMAGE_TAG"
       - export DOCKER_BUILDKIT=1
       - ls -la Server/terraform/Dockerfile
@@ -42,18 +42,7 @@ phases:
     commands:
       - echo "========== BUILD PHASE START =========="
       - echo "Build started on `date`"
-      - |
-        docker buildx build \
-          --platform linux/arm64 \
-          --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit \
-          --cache-from type=registry,ref=$REPOSITORY_URI:latest \
-          --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
-          --tag $REPOSITORY_URI:latest \
-          --tag $REPOSITORY_URI:$IMAGE_TAG \
-          --push \
-          --progress=plain \
-          -f Server/terraform/Dockerfile \
-          .
+      - docker buildx build --platform linux/arm64 --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit --cache-from type=registry,ref=$REPOSITORY_URI:latest --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max --tag $REPOSITORY_URI:latest --tag $REPOSITORY_URI:$IMAGE_TAG --push --progress=plain -f Server/terraform/Dockerfile .
       - echo "Build completed"
       - aws ecr describe-images --repository-name $ECR_REPOSITORY_NAME --region $AWS_DEFAULT_REGION
       - echo "========== BUILD PHASE END =========="
