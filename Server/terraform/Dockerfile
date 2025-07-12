@@ -34,7 +34,7 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --build-path /build/.build \
             --product CommandServer \
             --static-swift-stdlib \
-            -Xlinker -ljemalloc \
+            -Xlinker -ljemalloc
 
 # Copy built executable to a known location
 # キャッシュマウントを使用してビルド結果を取得
