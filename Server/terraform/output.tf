@@ -21,14 +21,24 @@ output "s3_bucket_artifacts_arn" {
 }
 
 # CodeBuild outputs
-output "codebuild_project_name" {
-  description = "Name of the CodeBuild project"
-  value       = aws_codebuild_project.main.name
+output "codebuild_swift_project_name" {
+  description = "Name of the Swift CodeBuild project"
+  value       = aws_codebuild_project.swift_build.name
 }
 
-output "codebuild_project_arn" {
-  description = "ARN of the CodeBuild project"
-  value       = aws_codebuild_project.main.arn
+output "codebuild_swift_project_arn" {
+  description = "ARN of the Swift CodeBuild project"
+  value       = aws_codebuild_project.swift_build.arn
+}
+
+output "codebuild_docker_project_name" {
+  description = "Name of the Docker CodeBuild project"
+  value       = aws_codebuild_project.docker_build.name
+}
+
+output "codebuild_docker_project_arn" {
+  description = "ARN of the Docker CodeBuild project"
+  value       = aws_codebuild_project.docker_build.arn
 }
 
 # CodePipeline outputs

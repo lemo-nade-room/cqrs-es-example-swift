@@ -33,19 +33,38 @@ resource "aws_codepipeline" "main" {
   }
 
   stage {
-    name = "Build"
+    name = "SwiftBuild"
 
     action {
-      name             = "Build"
+      name             = "SwiftBuild"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
       input_artifacts  = ["source_output"]
-      output_artifacts = ["build_output"]
+      output_artifacts = ["swift_build_output"]
       version          = "1"
 
       configuration = {
-        ProjectName = aws_codebuild_project.main.name
+        ProjectName = aws_codebuild_project.swift_build.name
+      }
+    }
+  }
+
+  stage {
+    name = "DockerBuild"
+
+    action {
+      name             = "DockerBuild"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output", "swift_build_output"]
+      output_artifacts = ["docker_build_output"]
+      version          = "1"
+
+      configuration = {
+        ProjectName   = aws_codebuild_project.docker_build.name
+        PrimarySource = "source_output"
       }
     }
   }

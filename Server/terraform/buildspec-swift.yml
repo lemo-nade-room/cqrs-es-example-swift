@@ -1,0 +1,35 @@
+version: 0.2
+
+cache:
+  paths:
+    - 'Server/.build/**/*'
+
+phases:
+  install:
+    commands:
+      - |
+        export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
+            && apt-get -q update \
+            && apt-get -q dist-upgrade -y \
+            && apt-get install -y \
+            libjemalloc-dev \
+            libssl-dev \
+            openssl \
+            pkg-config
+
+  build:
+    commands:
+      - cd Server
+      - |
+        swift build \
+          -c release \
+          --product CommandServer \
+          --build-path .build \
+          --static-swift-stdlib \
+          -Xlinker -ljemalloc
+      - cp "$(swift build --package-path . -c release --show-bin-path)/CommandServer" ./App
+
+artifacts:
+  files:
+    - Server/App
+  name: swift-build-output
