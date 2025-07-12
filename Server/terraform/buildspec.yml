@@ -4,7 +4,7 @@ phases:
   install:
     commands:
       - echo "========== INSTALL PHASE START =========="
-      - echo "Current working directory: $(pwd)"
+      - echo "Current working directory:" && pwd
       - echo "Listing root directory:"
       - ls -la
       - echo "Checking Docker version..."
@@ -12,7 +12,15 @@ phases:
       - echo "Checking if Docker daemon is running..."
       - docker info || echo "ERROR: Docker daemon not running!"
       - echo "Installing Docker Buildx..."
-      - docker buildx version && echo "Buildx already installed" || (echo "Installing buildx..." && mkdir -p ~/.docker/cli-plugins && wget -O ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-arm64 && chmod +x ~/.docker/cli-plugins/docker-buildx)
+      - |
+        if docker buildx version; then
+          echo "Buildx already installed"
+        else
+          echo "Installing buildx..."
+          mkdir -p ~/.docker/cli-plugins
+          wget -O ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-arm64
+          chmod +x ~/.docker/cli-plugins/docker-buildx
+        fi
       - echo "Verifying buildx installation..."
       - docker buildx version || echo "ERROR: Buildx installation failed!"
       - echo "Creating buildx builder..."
@@ -32,7 +40,7 @@ phases:
       - echo "ECR_REPOSITORY_NAME: $ECR_REPOSITORY_NAME"
       - echo "CODEBUILD_RESOLVED_SOURCE_VERSION: $CODEBUILD_RESOLVED_SOURCE_VERSION"
       - echo "Extracting AWS Account ID from CodeBuild ARN..."
-      - export AWS_ACCOUNT_ID=$(echo $CODEBUILD_BUILD_ARN | cut -d: -f5)
+      - export AWS_ACCOUNT_ID=`echo $CODEBUILD_BUILD_ARN | cut -d: -f5`
       - echo "AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
       - echo "Checking AWS CLI..."
       - aws --version || echo "ERROR: AWS CLI not found!"
@@ -43,7 +51,7 @@ phases:
       - echo "Setting up build variables..."
       - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
       - echo "REPOSITORY_URI: $REPOSITORY_URI"
-      - export COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - export COMMIT_HASH=`echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7`
       - echo "COMMIT_HASH: $COMMIT_HASH"
       - export IMAGE_TAG=${COMMIT_HASH:=latest}
       - echo "IMAGE_TAG: $IMAGE_TAG"
