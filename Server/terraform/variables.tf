@@ -15,3 +15,15 @@ variable "github_repository_id" {
   description = "GitHubのリポジトリID"
   type        = string
 }
+
+variable "project_name" {
+  default     = "cqrs-es-example"
+  description = "プロジェクト名"
+  type        = string
+}
+
+variable "environment" {
+  default     = "dev"
+  description = "環境名"
+  type        = string
+}
