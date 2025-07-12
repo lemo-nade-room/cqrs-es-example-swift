@@ -35,7 +35,6 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --build-path /build/.build \
             --product CommandServer \
             --static-swift-stdlib \
-            -j ${SWIFT_BUILD_JOBS} \
             -Xlinker -ljemalloc && \
     ls -a /build/.build && \
     # Copy built executable immediately after build
