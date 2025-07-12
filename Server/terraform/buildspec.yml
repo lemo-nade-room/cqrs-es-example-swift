@@ -20,7 +20,7 @@ phases:
       - echo "Listing buildx builders..."
       - docker buildx ls
       - echo "========== INSTALL PHASE END =========="
-      
+
   pre_build:
     commands:
       - echo "========== PRE-BUILD PHASE START =========="
@@ -62,7 +62,7 @@ phases:
       - echo "Current Docker images:"
       - docker images
       - echo "========== PRE-BUILD PHASE END =========="
-      
+
   build:
     commands:
       - echo "========== BUILD PHASE START =========="
@@ -89,7 +89,7 @@ phases:
       - echo "Build completed, verifying images in ECR..."
       - aws ecr describe-images --repository-name $ECR_REPOSITORY_NAME --region $AWS_DEFAULT_REGION || echo "ERROR: Failed to describe ECR images!"
       - echo "========== BUILD PHASE END =========="
-      
+
   post_build:
     commands:
       - echo "========== POST-BUILD PHASE START =========="
