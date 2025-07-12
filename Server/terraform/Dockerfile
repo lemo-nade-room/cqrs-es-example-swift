@@ -4,6 +4,9 @@
 # ================================
 FROM public.ecr.aws/docker/library/swift:6.1-noble AS build
 
+# Build arguments
+ARG SWIFT_BUILD_JOBS=8
+
 # Install OS updates and dependencies
 # これらのレイヤーは変更頻度が低いため最初に配置
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -41,7 +44,8 @@ RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
             --build-path /build/.build \
             --product CommandServer \
             --static-swift-stdlib \
-            -Xlinker -ljemalloc
+            -Xlinker -ljemalloc \
+            -j ${SWIFT_BUILD_JOBS}
 
 # Copy built executable to a known location
 # キャッシュマウントを使用してビルド結果を取得

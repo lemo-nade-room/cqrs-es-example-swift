@@ -24,5 +24,6 @@ phases:
           --provenance=false --sbom=false \
           --output "type=registry,push=true,oci-mediatypes=false" \
           --progress=plain \
+          --build-arg SWIFT_BUILD_JOBS=8 \
           -f Server/terraform/Dockerfile .
 
