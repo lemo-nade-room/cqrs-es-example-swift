@@ -1,67 +1,37 @@
 version: 0.2
 
-env:
-  shell: bash
-
 phases:
-  install:
-    commands:
-      - echo "========== INSTALL PHASE START =========="
-      - pwd
-      - ls -la
-      - docker --version
-      - docker info
-      - echo "Installing Docker Buildx..."
-      - docker buildx version || echo "Buildx not found, installing..."
-      - mkdir -p ~/.docker/cli-plugins
-      - wget -O ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-arm64
-      - chmod +x ~/.docker/cli-plugins/docker-buildx
-      - docker buildx version
-      - docker buildx create --use --driver docker-container --platform linux/arm64
-      - docker buildx ls
-      - echo "========== INSTALL PHASE END =========="
-
   pre_build:
     commands:
-      - echo "========== PRE-BUILD PHASE START =========="
-      - echo "Pre-build phase started"
-      - echo "Environment variables:"
-      - echo "ECR_REPOSITORY_NAME = $ECR_REPOSITORY_NAME"
-      - echo "CODEBUILD_RESOLVED_SOURCE_VERSION = $CODEBUILD_RESOLVED_SOURCE_VERSION"
-      - echo "CODEBUILD_BUILD_ARN = $CODEBUILD_BUILD_ARN"
-      - "echo $CODEBUILD_BUILD_ARN | cut -d: -f5 > /tmp/aws_account_id"
-      - AWS_ACCOUNT_ID=$(cat /tmp/aws_account_id)
-      - echo "AWS_ACCOUNT_ID = $AWS_ACCOUNT_ID"
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      # 環境変数の設定
+      - "AWS_ACCOUNT_ID=echo $CODEBUILD_BUILD_ARN | cut -d: -f5"
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
-      - echo "REPOSITORY_URI = $REPOSITORY_URI"
-      - "echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7 > /tmp/commit_hash"
-      - COMMIT_HASH=$(cat /tmp/commit_hash)
-      - IMAGE_TAG=${COMMIT_HASH:-latest}
-      - echo "IMAGE_TAG = $IMAGE_TAG"
+      - IMAGE_TAG=echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7
+      - export AWS_ACCOUNT_ID REPOSITORY_URI IMAGE_TAG
       - export DOCKER_BUILDKIT=1
-      - export AWS_ACCOUNT_ID
-      - export REPOSITORY_URI
-      - export IMAGE_TAG
-      - ls -la Server/terraform/Dockerfile
-      - echo "========== PRE-BUILD PHASE END =========="
+      
+      # ECRへのログイン
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
 
   build:
     commands:
-      - echo "========== BUILD PHASE START =========="
-      - echo "Build started"
-      - docker buildx build --platform linux/arm64 --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit --cache-from type=registry,ref=$REPOSITORY_URI:latest --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max --tag $REPOSITORY_URI:latest --tag $REPOSITORY_URI:$IMAGE_TAG --push --progress=plain -f Server/terraform/Dockerfile .
-      - echo "Build completed"
-      - aws ecr describe-images --repository-name $ECR_REPOSITORY_NAME --region $AWS_DEFAULT_REGION
-      - echo "========== BUILD PHASE END =========="
+      # Dockerイメージのビルドとプッシュ
+      - |
+        docker buildx build \
+          --platform linux/arm64 \
+          --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit \
+          --cache-from type=registry,ref=$REPOSITORY_URI:latest \
+          --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
+          --tag $REPOSITORY_URI:latest \
+          --tag $REPOSITORY_URI:$IMAGE_TAG \
+          --push \
+          --progress=plain \
+          -f Server/terraform/Dockerfile .
 
   post_build:
     commands:
-      - echo "========== POST-BUILD PHASE START =========="
-      - echo "Build completed"
+      # ECSデプロイ用の定義ファイル作成
       - printf '[{"name":"command-server","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-      - cat imagedefinitions.json
-      - echo "========== POST-BUILD PHASE END =========="
 
 artifacts:
   files:
