@@ -5,7 +5,6 @@ phases:
     commands:
       # 環境変数の設定
       - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
-      - "export IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7)"
       - docker buildx create --use --driver docker-container --platform linux/arm64
 
       # ECRへのログイン
@@ -21,7 +20,7 @@ phases:
           --cache-from type=registry,ref=$REPOSITORY_URI:latest \
           --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
           --tag $REPOSITORY_URI:latest \
-          --tag $REPOSITORY_URI:$IMAGE_TAG \
+          --tag $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION \
           --push \
           --progress=plain \
           -f Server/terraform/Dockerfile .
