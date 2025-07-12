@@ -29,13 +29,13 @@ phases:
       - echo "ECR_REPOSITORY_NAME = $ECR_REPOSITORY_NAME"
       - echo "CODEBUILD_RESOLVED_SOURCE_VERSION = $CODEBUILD_RESOLVED_SOURCE_VERSION"
       - echo "CODEBUILD_BUILD_ARN = $CODEBUILD_BUILD_ARN"
-      - echo $CODEBUILD_BUILD_ARN | cut -d: -f5 > /tmp/aws_account_id
+      - "echo $CODEBUILD_BUILD_ARN | cut -d: -f5 > /tmp/aws_account_id"
       - AWS_ACCOUNT_ID=$(cat /tmp/aws_account_id)
       - echo "AWS_ACCOUNT_ID = $AWS_ACCOUNT_ID"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
       - echo "REPOSITORY_URI = $REPOSITORY_URI"
-      - echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7 > /tmp/commit_hash
+      - "echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7 > /tmp/commit_hash"
       - COMMIT_HASH=$(cat /tmp/commit_hash)
       - IMAGE_TAG=${COMMIT_HASH:-latest}
       - echo "IMAGE_TAG = $IMAGE_TAG"
