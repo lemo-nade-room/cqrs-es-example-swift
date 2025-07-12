@@ -26,7 +26,8 @@ resource "aws_codebuild_project" "main" {
   }
 
   source {
-    type = "CODEPIPELINE"
+    type      = "CODEPIPELINE"
+    buildspec = "Server/terraform/buildspec.yml"
   }
 
   logs_config {
