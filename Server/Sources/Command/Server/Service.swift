@@ -52,7 +52,7 @@ struct Service: APIProtocol {
 
             span.setStatus(.init(code: .ok))
         }
-        return .ok(.init(body: .plainText("Command Server Working! v7 - testing cache performance!")))
+        return .ok(.init(body: .plainText("Command Server Working! v8 - testing cache performance!")))
     }
 }
 
