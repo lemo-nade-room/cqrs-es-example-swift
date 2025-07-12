@@ -27,3 +27,9 @@ variable "environment" {
   description = "環境名"
   type        = string
 }
+
+variable "github_connection_name" {
+  default     = "github"
+  description = "GitHub App接続の名前"
+  type        = string
+}

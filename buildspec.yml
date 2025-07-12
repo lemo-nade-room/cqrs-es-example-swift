@@ -1,0 +1,27 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Current directory:"
+      - pwd
+      - echo "Listing files:"
+      - ls -la
+      
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      - echo "Checking directory structure:"
+      - find . -type f -name "*.swift" | head -10
+      - echo "Checking if Dockerfile exists:"
+      - ls -la Server/Dockerfile || echo "Dockerfile not found"
+      
+  post_build:
+    commands:
+      - echo "Post-build phase completed on `date`"
+      - echo "Build completed successfully!"
+
+artifacts:
+  files:
+    - '**/*'
