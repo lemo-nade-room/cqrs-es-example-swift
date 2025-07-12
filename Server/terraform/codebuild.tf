@@ -23,6 +23,11 @@ resource "aws_codebuild_project" "main" {
       name  = "ENVIRONMENT"
       value = var.environment
     }
+
+    environment_variable {
+      name  = "ECR_REPOSITORY_NAME"
+      value = aws_ecr_repository.lambda_command.name
+    }
   }
 
   source {

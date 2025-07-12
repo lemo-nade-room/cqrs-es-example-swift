@@ -1,27 +1,110 @@
 version: 0.2
 
 phases:
+  install:
+    commands:
+      - echo "========== INSTALL PHASE START =========="
+      - echo "Current working directory: $(pwd)"
+      - echo "Listing root directory:"
+      - ls -la
+      - echo "Checking Docker version..."
+      - docker --version || echo "ERROR: Docker not found!"
+      - echo "Checking if Docker daemon is running..."
+      - docker info || echo "ERROR: Docker daemon not running!"
+      - echo "Installing Docker Buildx..."
+      - docker buildx version && echo "Buildx already installed" || (echo "Installing buildx..." && mkdir -p ~/.docker/cli-plugins && wget -O ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-arm64 && chmod +x ~/.docker/cli-plugins/docker-buildx)
+      - echo "Verifying buildx installation..."
+      - docker buildx version || echo "ERROR: Buildx installation failed!"
+      - echo "Creating buildx builder..."
+      - docker buildx create --use --driver docker-container --platform linux/arm64 || echo "ERROR: Failed to create buildx builder!"
+      - echo "Listing buildx builders..."
+      - docker buildx ls
+      - echo "========== INSTALL PHASE END =========="
+      
   pre_build:
     commands:
+      - echo "========== PRE-BUILD PHASE START =========="
       - echo "Pre-build phase started on `date`"
-      - echo "Current directory:"
-      - pwd
-      - echo "Listing files:"
-      - ls -la
+      - echo "Environment variables check:"
+      - echo "CODEBUILD_BUILD_ARN: $CODEBUILD_BUILD_ARN"
+      - echo "AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+      - echo "AWS_REGION: $AWS_REGION"
+      - echo "ECR_REPOSITORY_NAME: $ECR_REPOSITORY_NAME"
+      - echo "CODEBUILD_RESOLVED_SOURCE_VERSION: $CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - echo "Extracting AWS Account ID from CodeBuild ARN..."
+      - export AWS_ACCOUNT_ID=$(echo $CODEBUILD_BUILD_ARN | cut -d: -f5)
+      - echo "AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
+      - echo "Checking AWS CLI..."
+      - aws --version || echo "ERROR: AWS CLI not found!"
+      - echo "Checking AWS credentials..."
+      - aws sts get-caller-identity || echo "ERROR: AWS credentials not configured!"
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com || echo "ERROR: ECR login failed!"
+      - echo "Setting up build variables..."
+      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - echo "REPOSITORY_URI: $REPOSITORY_URI"
+      - export COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - echo "COMMIT_HASH: $COMMIT_HASH"
+      - export IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo "IMAGE_TAG: $IMAGE_TAG"
+      - export DOCKER_BUILDKIT=1
+      - echo "DOCKER_BUILDKIT: $DOCKER_BUILDKIT"
+      - echo "Checking if Dockerfile exists..."
+      - ls -la Server/terraform/Dockerfile || echo "ERROR: Dockerfile not found!"
+      - echo "Checking source code structure..."
+      - ls -la Server/ || echo "ERROR: Server directory not found!"
+      - ls -la Server/Sources/ || echo "WARNING: Sources directory not found!"
+      - echo "Pulling cache images..."
+      - echo "Attempting to pull cache-buildkit image..."
+      - docker pull $REPOSITORY_URI:cache-buildkit && echo "Cache image pulled successfully" || echo "WARNING: No cache image found (this is normal for first build)"
+      - echo "Attempting to pull latest image..."
+      - docker pull $REPOSITORY_URI:latest && echo "Latest image pulled successfully" || echo "WARNING: No latest image found (this is normal for first build)"
+      - echo "Current Docker images:"
+      - docker images
+      - echo "========== PRE-BUILD PHASE END =========="
       
   build:
     commands:
+      - echo "========== BUILD PHASE START =========="
       - echo "Build phase started on `date`"
-      - echo "Checking directory structure:"
-      - find . -type f -name "*.swift" | head -10
-      - echo "Checking if Dockerfile exists:"
-      - ls -la Server/Dockerfile || echo "Dockerfile not found"
+      - echo "Verifying buildx is available..."
+      - docker buildx version || echo "ERROR: Buildx not available!"
+      - echo "Current buildx builder:"
+      - docker buildx inspect
+      - echo "Building Docker image with buildx and caching..."
+      - echo "Build command that will be executed:"
+      - echo "docker buildx build --platform linux/arm64 --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit --cache-from type=registry,ref=$REPOSITORY_URI:latest --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max --tag $REPOSITORY_URI:latest --tag $REPOSITORY_URI:$IMAGE_TAG --push -f Server/terraform/Dockerfile ."
+      - |
+        docker buildx build \
+          --platform linux/arm64 \
+          --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit \
+          --cache-from type=registry,ref=$REPOSITORY_URI:latest \
+          --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
+          --tag $REPOSITORY_URI:latest \
+          --tag $REPOSITORY_URI:$IMAGE_TAG \
+          --push \
+          --progress=plain \
+          -f Server/terraform/Dockerfile \
+          . || { echo "ERROR: Docker build failed!"; exit 1; }
+      - echo "Build completed, verifying images in ECR..."
+      - aws ecr describe-images --repository-name $ECR_REPOSITORY_NAME --region $AWS_DEFAULT_REGION || echo "ERROR: Failed to describe ECR images!"
+      - echo "========== BUILD PHASE END =========="
       
   post_build:
     commands:
-      - echo "Post-build phase completed on `date`"
-      - echo "Build completed successfully!"
+      - echo "========== POST-BUILD PHASE START =========="
+      - echo "Post-build phase started on `date`"
+      - echo "Build status: $CODEBUILD_BUILD_SUCCEEDING"
+      - echo "Writing image definitions file..."
+      - printf '[{"name":"command-server","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo "Contents of imagedefinitions.json:"
+      - cat imagedefinitions.json
+      - echo "Verifying imagedefinitions.json exists:"
+      - ls -la imagedefinitions.json || echo "ERROR: imagedefinitions.json not created!"
+      - echo "Final image URI: $REPOSITORY_URI:$IMAGE_TAG"
+      - echo "Build completed at `date`"
+      - echo "========== POST-BUILD PHASE END =========="
 
 artifacts:
   files:
-    - '**/*'
+    - imagedefinitions.json

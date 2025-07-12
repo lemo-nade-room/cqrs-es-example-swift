@@ -22,7 +22,23 @@ resource "aws_ecr_repository" "lambda_command" {
 data "aws_ecr_lifecycle_policy_document" "lambda_command" {
   rule {
     priority    = 1
-    description = "Keep last 5 tagged images"
+    description = "Keep cache-buildkit images"
+
+    selection {
+      tag_status       = "tagged"
+      tag_pattern_list = ["cache-buildkit"]
+      count_type       = "imageCountMoreThan"
+      count_number     = 1
+    }
+
+    action {
+      type = "expire"
+    }
+  }
+
+  rule {
+    priority    = 2
+    description = "Keep last 5 tagged images (excluding cache)"
 
     selection {
       tag_status       = "tagged"
@@ -37,7 +53,7 @@ data "aws_ecr_lifecycle_policy_document" "lambda_command" {
   }
 
   rule {
-    priority    = 2
+    priority    = 3
     description = "Expire untagged images after 1 day"
 
     selection {
