@@ -21,7 +21,8 @@ phases:
           --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
           --tag $REPOSITORY_URI:latest \
           --tag $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION \
-          --push \
+          --provenance=false --sbom=false \
+          --output "type=registry,push=true,oci-mediatypes=false" \
           --progress=plain \
           -f Server/terraform/Dockerfile .
 
