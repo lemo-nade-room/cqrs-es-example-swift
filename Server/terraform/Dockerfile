@@ -26,39 +26,27 @@ COPY ./Server/Package.* ./
 COPY ./Server/Sources ./Sources
 COPY ./Server/Tests ./Tests
 
+# Build the application and copy executable in the same RUN command
+# This ensures the build cache is available when copying the binary
 RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
     --mount=type=cache,id=swift-build,target=/build/.build \
-    ls -a /build/.build
-
-# Build the application with optimizations
-# BuildKitのキャッシュマウントを使用して、ビルドキャッシュを永続化
-RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
-    --mount=type=cache,id=swift-build,target=/build/.build \
+    ls -a /build/.build && \
     swift build -c release \
             --build-path /build/.build \
             --product CommandServer \
             --static-swift-stdlib \
-            -Xlinker -ljemalloc
-
-RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
-    --mount=type=cache,id=swift-build,target=/build/.build \
-    ls -a /build/.build
-
-# Copy built executable to a known location
-# キャッシュマウントを使用してビルド結果を取得
-RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
-    --mount=type=cache,id=swift-build,target=/build/.build \
+            -j ${SWIFT_BUILD_JOBS} \
+            -Xlinker -ljemalloc && \
+    ls -a /build/.build && \
+    # Copy built executable immediately after build
     BIN_PATH=$(swift build --package-path /build -c release --show-bin-path) && \
     cp "$BIN_PATH/CommandServer" /build/CommandServer && \
+    ls -a /build/.build && \
     cp "/usr/libexec/swift/linux/swift-backtrace-static" /build/swift-backtrace-static && \
+    ls -a /build/.build && \
     # Copy resources if they exist
     [ -d /build/Public ] && cp -r /build/Public /build/Public-copy || true && \
     [ -d /build/Resources ] && cp -r /build/Resources /build/Resources-copy || true
-
-
-RUN --mount=type=cache,id=swiftpm-cache,target=/root/.swiftpm \
-    --mount=type=cache,id=swift-build,target=/build/.build \
-    ls -a /build/.build
 # ================================
 # Runtime image
 # ================================
