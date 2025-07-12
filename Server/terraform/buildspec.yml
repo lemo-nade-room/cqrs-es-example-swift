@@ -17,7 +17,6 @@ phases:
         docker buildx build \
           --platform linux/arm64 \
           --cache-from type=registry,ref=$REPOSITORY_URI:cache-buildkit \
-          --cache-from type=registry,ref=$REPOSITORY_URI:latest \
           --cache-to type=registry,ref=$REPOSITORY_URI:cache-buildkit,mode=max \
           --tag $REPOSITORY_URI:latest \
           --tag $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION \
